@@ -70,9 +70,11 @@ export type CapyRefs = {
 
 function capy(parent: THREE.Object3D, x: number, z: number, size = 1, crowned = false): CapyRefs {
   const root = new THREE.Group();
-  root.position.set(x, 0.14, z);
-  // Camera is at (+7.8, +6.2, +9.0), so rotation.y = +0.42 faces 3/4 toward the viewer (angled slightly left, matching the 2D reference art!)
-  root.rotation.y = 0.42;
+  root.position.set(x, 0.12, z);
+  // Camera in root local space is at azimuth ~+1.07 rad.
+  // Setting rotation.y = +1.36 rad angles the Capybara 3/4 toward the RIGHT-FRONT (toward the cottage steps),
+  // matching docs/a_detailed_ui_ux_concept_presentation_for_a_cute_w.png!
+  root.rotation.y = 1.36;
   root.scale.setScalar(size);
   root.userData.isCapy = true;
   parent.add(root);
@@ -81,144 +83,163 @@ function capy(parent: THREE.Object3D, x: number, z: number, size = 1, crowned = 
   body.userData.isCapy = true;
   root.add(body);
 
-  const fur = '#e5a365';
-  const furShade = '#cf884d';
-  const furLight = '#f3bf8b';
-  const muzzleColor = '#8f5e3e';
-  const pawColor = '#7d4f33';
-  const earInner = '#c78f6c';
-  const darkInk = '#22150e';
-  const bookCover = '#94b8c8';
-  const bookSpine = '#6a90a4';
-  const bookPages = '#fffdf8';
+  const fur = '#e8a460';
+  const furShade = '#dc9652';
+  const furLight = '#f4be84';
+  const muzzleColor = '#b3764c';
+  const pawColor = '#9e643c';
+  const earOuter = '#c88453';
+  const earInner = '#885130';
+  const darkInk = '#2f1b10';
+  const blushColor = '#f2957e';
+  const beretPink = '#f6b8bc';
+  const beretStem = '#de9498';
+  const padPaper = '#fcf1dc';
+  const padShade = '#e8d4b4';
+  const padLine = '#d4bc98';
 
-  // 1. Continuous Plump Pear/Potato Body (seamless back-to-head contour)
-  ball(body, 0.50, fur, 0, 0.42, -0.06, [1.08, 0.94, 1.06]);
-  ball(body, 0.45, fur, 0, 0.70, -0.05, [1.02, 0.98, 1.02]);
-  ball(body, 0.40, fur, 0, 0.90, -0.04, [0.96, 0.92, 0.96]);
-  ball(body, 0.36, furLight, 0, 0.45, 0.16, [0.85, 0.88, 0.65]);
+  // 1. Compact, Chubby Sitting Body (1.5-head chibi proportions matching concept art)
+  const lathePts = [
+    new THREE.Vector2(0.001, 0.02),
+    new THREE.Vector2(0.38, 0.03),
+    new THREE.Vector2(0.49, 0.12),
+    new THREE.Vector2(0.52, 0.26),
+    new THREE.Vector2(0.50, 0.42),
+    new THREE.Vector2(0.46, 0.56),
+    new THREE.Vector2(0.41, 0.68),
+    new THREE.Vector2(0.001, 0.74),
+  ];
+  const bodyGeo = new THREE.LatheGeometry(lathePts, 36);
+  const torsoMesh = mesh(body, bodyGeo, fur, 0, 0, -0.02);
+  torsoMesh.scale.set(1.05, 1.0, 1.02);
 
-  // 2. Smooth Loaf-Shaped Capybara Head
+  // Warm soft belly glow (kept flush inside torso so it never clips the notebook)
+  const bellyPatch = ball(body, 0.34, furLight, 0, 0.32, 0.10, [0.82, 0.82, 0.58]);
+  bellyPatch.castShadow = false;
+
+  // 2. Big, Wide, Chubby-Cheeked Capybara Head sitting low & seamlessly on the body
   const head = new THREE.Group();
-  head.position.set(0, 0.98, 0.02);
+  head.position.set(0, 0.58, 0.03);
   head.userData.isCapy = true;
   body.add(head);
 
-  // Unified cranium and blunt snout loaf
-  ball(head, 0.38, fur, 0, 0.12, -0.03, [1.04, 0.95, 1.08]);
-  box(head, 0.58, 0.48, 0.58, fur, 0, 0.08, 0.12, 0.23);
-  ball(head, 0.35, fur, 0, 0.02, 0.06, [1.10, 0.78, 1.0]);
+  // Single unified wide chubby head & cheeks (no intermediate bump!)
+  ball(head, 0.46, fur, 0, 0.23, 0, [1.08, 0.88, 1.02]);
+  ball(head, 0.41, fur, 0, 0.32, -0.01, [1.02, 0.82, 0.96]);
 
-  // Arched cocoa-brown muzzle patch nestled smoothly into the front of the snout
-  ball(head, 0.25, muzzleColor, 0, 0.06, 0.25, [0.92, 1.06, 0.70]);
+  // Plump, Rounded Caramel-Brown Muzzle Cushion at the front of the face (matching concept_capy_1.png)
+  ball(head, 0.22, muzzleColor, 0, 0.20, 0.37, [0.88, 1.05, 0.78]);
 
-  // Nostrils (\ /), vertical philtrum (|), and inverted-V mouth (/\) on the front of the muzzle patch
-  const nL = box(head, 0.064, 0.024, 0.022, darkInk, -0.065, 0.165, 0.422, 0.008);
+  // Two cute dark-brown teardrop nostrils (\ /) near the top of the caramel muzzle
+  const nL = ball(head, 0.033, darkInk, -0.052, 0.295, 0.525, [1.18, 0.82, 0.65]);
   nL.rotation.z = -0.45;
-  const nR = box(head, 0.064, 0.024, 0.022, darkInk, 0.065, 0.165, 0.422, 0.008);
+  nL.rotation.y = -0.18;
+  const nR = ball(head, 0.033, darkInk, 0.052, 0.295, 0.525, [1.18, 0.82, 0.65]);
   nR.rotation.z = 0.45;
-  box(head, 0.025, 0.135, 0.022, darkInk, 0, 0.065, 0.426, 0.008);
-  const mL = box(head, 0.058, 0.024, 0.022, darkInk, -0.024, -0.002, 0.42, 0.008);
-  mL.rotation.z = 0.40;
-  const mR = box(head, 0.058, 0.024, 0.022, darkInk, 0.024, -0.002, 0.42, 0.008);
-  mR.rotation.z = -0.40;
+  nR.rotation.y = 0.18;
 
-  // Calm, focused horizontal scholar eyes visible behind the spectacles + rosy cheeks
+  // Clean vertical philtrum groove (|) down the center of the caramel muzzle
+  box(head, 0.022, 0.20, 0.024, darkInk, 0, 0.175, 0.532, 0.008);
+  // Subtle little mouth curve at the bottom of the philtrum
+  const mL = box(head, 0.042, 0.020, 0.022, darkInk, -0.017, 0.078, 0.518, 0.007);
+  mL.rotation.z = 0.26;
+  const mR = box(head, 0.042, 0.020, 0.022, darkInk, 0.017, 0.078, 0.518, 0.007);
+  mR.rotation.z = -0.26;
+
+  // Happy Smiling Curved-Arc Eyes (︵) & Soft Coral-Pink Cheek Blushes (cleanly on the surface of the chubby face!)
   [-1, 1].forEach(side => {
-    const eyeLine = box(head, 0.095, 0.026, 0.025, darkInk, side * 0.16, 0.22, 0.355, 0.01);
-    eyeLine.rotation.y = side * 0.28;
-    eyeLine.rotation.z = side * 0.10;
-    ball(head, 0.032, darkInk, side * 0.16, 0.205, 0.36, [1.1, 0.85, 0.8]);
-    ball(head, 0.058, '#f29385', side * 0.26, 0.09, 0.28, [0.6, 0.45, 0.5]);
+    const eyeGroup = new THREE.Group();
+    eyeGroup.position.set(side * 0.235, 0.315, 0.405);
+    eyeGroup.rotation.y = side * 0.48;
+    eyeGroup.rotation.x = -0.12;
+    eyeGroup.rotation.z = side * -0.05;
+    head.add(eyeGroup);
+
+    // Upward happy crescent arch (︵)
+    const arcGeo = new THREE.TorusGeometry(0.058, 0.020, 12, 24, Math.PI * 0.82);
+    const arcMesh = mesh(eyeGroup, arcGeo, darkInk, 0, -0.015, 0);
+    arcMesh.rotation.z = Math.PI * 0.09;
+    const aStart = Math.PI * 0.09;
+    const aEnd = Math.PI * 0.91;
+    ball(eyeGroup, 0.020, darkInk, Math.cos(aStart) * 0.058, -0.015 + Math.sin(aStart) * 0.058, 0);
+    ball(eyeGroup, 0.020, darkInk, Math.cos(aEnd) * 0.058, -0.015 + Math.sin(aEnd) * 0.058, 0);
+
+    // Rosy coral-pink cheek blush right below the happy eye
+    const blush = ball(head, 0.072, blushColor, side * 0.285, 0.21, 0.37, [1.18, 0.68, 0.52]);
+    blush.rotation.y = side * 0.52;
+    blush.castShadow = false;
   });
 
-  // Round Scholar Glasses with thin wire rims and subtle translucent glass lenses
-  const glassesGroup = new THREE.Group();
-  glassesGroup.position.set(0, 0.225, 0.385);
-  glassesGroup.rotation.x = -0.18;
-  head.add(glassesGroup);
-
-  const glassMat = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, opacity: 0.26, roughness: 0.15 });
-  [-0.145, 0.145].forEach((gx, idx) => {
-    const lensDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.008, 24), glassMat);
-    lensDisc.position.set(gx, 0, -0.002);
-    lensDisc.rotation.x = Math.PI / 2;
-    lensDisc.rotation.y = idx === 0 ? -0.12 : 0.12;
-    glassesGroup.add(lensDisc);
-    const rim = mesh(glassesGroup, new THREE.TorusGeometry(0.104, 0.015, 12, 28), darkInk, gx, 0, 0);
-    rim.rotation.y = idx === 0 ? -0.12 : 0.12;
-  });
-  box(glassesGroup, 0.085, 0.018, 0.018, darkInk, 0, 0.01, 0.004, 0.006);
-
-  // Distinct Rounded Capybara Ears at top-back corners of head
+  // Small Rounded C-Shaped Capybara Ears on the upper sides of the head
   const leftEar = new THREE.Group();
-  leftEar.position.set(-0.22, 0.35, -0.12);
-  leftEar.rotation.set(-0.22, 0, -0.32);
+  leftEar.position.set(-0.35, 0.46, -0.03);
+  leftEar.rotation.set(-0.10, -0.22, 0.42);
   head.add(leftEar);
-  ball(leftEar, 0.125, pawColor, 0, 0, 0, [0.82, 1.18, 0.55]);
-  ball(leftEar, 0.075, earInner, 0, -0.01, 0.035, [0.70, 0.95, 0.35]);
+  ball(leftEar, 0.11, earOuter, 0, 0, 0, [0.95, 1.08, 0.58]);
+  ball(leftEar, 0.068, earInner, 0, -0.005, 0.035, [0.75, 0.85, 0.40]);
 
   const rightEar = new THREE.Group();
-  rightEar.position.set(0.22, 0.35, -0.12);
-  rightEar.rotation.set(-0.22, 0, 0.32);
+  rightEar.position.set(0.35, 0.46, -0.03);
+  rightEar.rotation.set(-0.10, 0.22, -0.42);
   head.add(rightEar);
-  ball(rightEar, 0.125, pawColor, 0, 0, 0, [0.82, 1.18, 0.55]);
-  ball(rightEar, 0.075, earInner, 0, -0.01, 0.035, [0.70, 0.95, 0.35]);
+  ball(rightEar, 0.11, earOuter, 0, 0, 0, [0.95, 1.08, 0.58]);
+  ball(rightEar, 0.068, earInner, 0, -0.005, 0.035, [0.75, 0.85, 0.40]);
 
-  // 3. Open Book Held Clearly in Front of Chest
-  const book = new THREE.Group();
-  book.position.set(0, 0.49, 0.54);
-  book.rotation.x = -0.38;
-  body.add(book);
+  // Cute Pastel-Pink Beret Hat sitting cleanly on top of the head (no fur poking through!)
+  const beret = new THREE.Group();
+  beret.position.set(-0.02, 0.59, -0.01);
+  beret.rotation.set(-0.08, 0, 0.10);
+  head.add(beret);
+  ball(beret, 0.30, beretPink, 0, 0, 0, [1.10, 0.48, 1.05]);
+  const stem = box(beret, 0.038, 0.07, 0.038, beretStem, -0.01, 0.135, 0, 0.015);
+  stem.rotation.z = 0.22;
 
-  box(book, 0.06, 0.38, 0.038, bookSpine, 0, 0, -0.02, 0.01);
-  const leftCover = box(book, 0.30, 0.38, 0.030, bookCover, -0.15, 0, 0.022, 0.01);
-  leftCover.rotation.y = 0.32;
-  const rightCover = box(book, 0.30, 0.38, 0.030, bookCover, 0.15, 0, 0.022, 0.01);
-  rightCover.rotation.y = -0.32;
-  const leftPage = box(book, 0.28, 0.37, 0.038, bookPages, -0.14, 0.025, -0.002, 0.008);
-  leftPage.rotation.y = 0.32;
-  const rightPage = box(book, 0.28, 0.37, 0.038, bookPages, 0.14, 0.025, -0.002, 0.008);
-  rightPage.rotation.y = -0.32;
-
-  // Chubby Arms & 3-Fingered Cocoa Paws Clasping the Book
-  const armL = ball(body, 0.14, furShade, -0.35, 0.54, 0.22, [0.85, 0.95, 1.38]);
-  armL.rotation.y = 0.35;
-  const armR = ball(body, 0.14, furShade, 0.35, 0.54, 0.22, [0.85, 0.95, 1.38]);
-  armR.rotation.y = -0.35;
-
-  [-1, 1].forEach(side => {
-    const paw = new THREE.Group();
-    paw.position.set(side * 0.27, 0.48, 0.57);
-    paw.rotation.y = side * -0.25;
-    body.add(paw);
-    ball(paw, 0.088, pawColor, 0, 0, 0, [1.15, 0.90, 0.88]);
-    [-0.042, 0, 0.042].forEach(fy => {
-      ball(paw, 0.036, pawColor, -side * 0.06, fy, 0.022, [1.25, 0.82, 0.92]);
-    });
-  });
-
-  // 4. Prominent 3-Toed Sitting Feet at the Bottom Front
-  [-1, 1].forEach(side => {
-    const foot = new THREE.Group();
-    foot.position.set(side * 0.28, 0.12, 0.38);
-    foot.rotation.set(-0.25, side * -0.22, 0);
-    body.add(foot);
-    ball(foot, 0.128, pawColor, 0, 0, 0, [0.96, 0.75, 1.38]);
-    [-0.052, 0, 0.052].forEach(tx => {
-      ball(foot, 0.042, pawColor, tx, 0.04, 0.13, [0.88, 0.98, 1.12]);
-      box(foot, 0.018, 0.048, 0.045, darkInk, tx + (tx === 0 ? 0.024 : tx * 0.4), 0.04, 0.14, 0.005);
-    });
-  });
-
-  // 5. Golden Crown when World > 0
+  // Golden Crown when World > 0
   if (crowned) {
-    cylinder(head, 0.15, 0.09, C.gold, 0, 0.40, -0.02);
+    cylinder(head, 0.14, 0.085, C.gold, 0, 0.72, -0.01);
     for (let i = 0; i < 5; i++) {
       const a = i * Math.PI * 2 / 5;
-      mesh(head, new THREE.ConeGeometry(0.048, 0.15, 5), C.gold, Math.cos(a) * 0.12, 0.49, -0.02 + Math.sin(a) * 0.12);
+      mesh(head, new THREE.ConeGeometry(0.045, 0.14, 5), C.gold, Math.cos(a) * 0.11, 0.80, -0.01 + Math.sin(a) * 0.11);
     }
   }
+
+  // 3. Cream-Ivory Writing Pad / Booklet Held Cleanly in Front of the Chest (matching concept_capy_1.png)
+  const book = new THREE.Group();
+  book.position.set(0, 0.36, 0.54);
+  book.rotation.x = -0.14;
+  body.add(book);
+
+  // Back page stack + front cream writing sheet with subtle top fold/lines
+  box(book, 0.30, 0.36, 0.042, padShade, 0, 0, -0.014, 0.020);
+  box(book, 0.31, 0.36, 0.032, padPaper, 0, 0.006, 0.008, 0.020);
+  box(book, 0.22, 0.020, 0.012, padLine, 0, 0.11, 0.025, 0.005);
+  box(book, 0.18, 0.016, 0.012, padLine, -0.02, 0.05, 0.025, 0.004);
+
+  // Chubby Arms & Rounded Caramel Paws Clasping Both Sides of the Writing Pad
+  [-1, 1].forEach(side => {
+    const arm = new THREE.Group();
+    arm.position.set(side * 0.33, 0.37, 0.26);
+    arm.rotation.set(0.05, side * -0.52, side * 0.10);
+    body.add(arm);
+    ball(arm, 0.14, furShade, 0, 0, 0.06, [0.85, 0.85, 1.55]);
+
+    const paw = new THREE.Group();
+    paw.position.set(side * 0.185, 0.35, 0.545);
+    paw.rotation.y = side * -0.25;
+    body.add(paw);
+    ball(paw, 0.095, pawColor, 0, 0, 0, [0.95, 1.05, 0.85]);
+  });
+
+  // 4. Two Cute, Stubby Rounded Caramel-Brown Sitting Feet at the Bottom Front
+  [-1, 1].forEach(side => {
+    const foot = new THREE.Group();
+    foot.position.set(side * 0.21, 0.11, 0.36);
+    foot.rotation.set(-0.15, side * -0.20, 0);
+    body.add(foot);
+    ball(foot, 0.125, pawColor, 0, 0, 0, [0.96, 0.85, 1.18]);
+    // Subtle dark-brown toe crease on the front of the stubby foot
+    box(foot, 0.016, 0.075, 0.04, darkInk, side * -0.015, -0.01, 0.13, 0.005);
+  });
 
   root.traverse(obj => { obj.userData.isCapy = true; });
   return { root, body, head, book, leftEar, rightEar };
@@ -487,8 +508,14 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     box(decor, 7.13, .22, 6.03, C.grass, 0, .02, 0, .6);
     for (let i = 0; i < 22; i++) { const a = i * Math.PI * 2 / 22; ball(decor, .2 + (i % 3) * .04, ['#c0ce91','#c9d79c','#b7ca87'][i % 3], Math.cos(a) * 3.32, .08, Math.sin(a) * 2.75, [1.3, .6, 1.1]); }
     tree(decor, -2.65, -1.35, 1.05, world === 1); tree(decor, 2.55, -1.75, .65, world === 1);
-    for (let i = 0; i < 9; i++) { const a = i * 2.39; ball(decor, .26, ['#a9bf80','#b5c98d'][i % 2], Math.sin(a) * 2.75, .25, Math.cos(a) * 2.15, [1.3, .85, 1]); }
-    for (let i = 0; i < 13; i++) { const a = i * 2.4; flower(decor, Math.sin(a) * (2.6 + (i % 2) * .2), .17, Math.cos(a) * 2.3, ['#f7dd9b','#e9b7c2','#f4e4cc'][i % 3], .6 + i % 3 * .18); }
+    for (let i = 0; i < 9; i++) {
+      const a = i * 2.39, bx = Math.sin(a) * 2.75, bz = Math.cos(a) * 2.15;
+      if (Math.hypot(bx - (-1.72), bz - 1.8) > 0.92) ball(decor, .26, ['#a9bf80','#b5c98d'][i % 2], bx, .25, bz, [1.3, .85, 1]);
+    }
+    for (let i = 0; i < 13; i++) {
+      const a = i * 2.4, fx = Math.sin(a) * (2.6 + (i % 2) * .2), fz = Math.cos(a) * 2.3;
+      if (Math.hypot(fx - (-1.72), fz - 1.8) > 0.88) flower(decor, fx, .17, fz, ['#f7dd9b','#e9b7c2','#f4e4cc'][i % 3], .6 + i % 3 * .18);
+    }
     for (let i = 0; i < 4; i++) { const stone = cylinder(decor, .25, .06, '#f1e0bb', .05 + Math.sin(i * .8) * .2, .17, 1.65 + i * .36); stone.scale.set(1.25, 1, .67); }
     const pond = cylinder(decor, .63, .05, '#e6d3a9', 2.5, .17, 1.1); pond.scale.set(1, 1, 1.45);
     const water = cylinder(decor, .52, .055, C.water, 2.5, .2, 1.1); water.scale.set(1, 1, 1.45);
