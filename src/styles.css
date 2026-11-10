@@ -118,13 +118,17 @@ textarea, input { caret-color: var(--color-primary); }
 .side-nav a:hover, .nav-button:hover { background: var(--color-primary-soft); }
 .nav-indicator { width: 5px; height: 5px; border-radius: 50%; background: var(--color-primary); margin-left: auto; }
 .sidebar-bottom { margin-top: auto; padding-top: 80px; }
-.capy-note { text-align: center; margin: 0 4px 32px; padding: 20px 8px; background: var(--color-peach-soft); border-radius: var(--radius-lg); }
+.capy-note { display: block; width: calc(100% - 8px); text-align: center; margin: 0 4px 28px; padding: 18px 10px 14px; background: var(--color-peach-soft); border-radius: var(--radius-lg); transition: background var(--duration-fast), transform var(--duration-fast); }
+.capy-note:hover { background: var(--color-primary-soft); }
 .note-art { display: flex; justify-content: center; align-items: flex-start; gap: 4px; }
 .note-art > svg { margin-top: 2px; color: var(--color-primary); transform: rotate(12deg); }
-.capy-note img { border-radius: 12px; transform: rotate(-3deg); transition: transform var(--duration-fast); }
+.capy-note img { object-fit: contain; border-radius: 12px; transform: rotate(-3deg); transition: transform var(--duration-fast); }
 .capy-note:hover img { transform: scale(1.08) rotate(0deg); }
-.capy-note p { font-size: 13px; margin-top: 12px; color: var(--color-muted); line-height: 1.7; }
+.capy-note p { font-size: 13px; margin-top: 10px; color: var(--color-muted); line-height: 1.65; }
 .capy-note strong { color: var(--color-text); font-weight: 600; }
+.note-dots { display: inline-flex; gap: 5px; margin-top: 10px; }
+.note-dots > i { width: 5px; height: 5px; border-radius: 50%; background: var(--color-border-strong); transition: background var(--duration-fast), transform var(--duration-fast); }
+.note-dots > i.active { background: var(--color-primary); transform: scale(1.25); }
 .nav-button { width: 100%; color: var(--color-muted); }
 .sidebar-footer { display: flex; align-items: center; gap: 5px; font-size: 11px; margin: 24px 4px 0; color: var(--color-muted); white-space: nowrap; }
 .main-shell { margin-left: 220px; width: calc(100% - 220px); }
@@ -195,6 +199,7 @@ main:focus, .page-heading h1:focus { outline: none; }
 .writing-panel { padding: 26px 24px 21px; border-radius: var(--radius-lg); background: var(--color-surface); border: 1px solid var(--color-border); }
 .writing-heading { display: flex; gap: 9px; align-items: center; }
 .writing-heading h2 { font-size: 21px; }
+.writing-capy-mascot { margin-left: auto; object-fit: contain; transform: translateY(-2px); }
 .writing-icon { color: var(--color-primary); display: flex; }
 .writing-description { font-size: 14px; color: var(--color-muted); margin-top: 9px; line-height: 1.7; }
 .task-selector { display: flex; gap: 8px; border: 0; padding: 0; margin: 22px 0 19px; }

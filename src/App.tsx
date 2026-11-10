@@ -45,6 +45,13 @@ function playReward() {
   try { const context = new AudioContext(); [523.25, 659.25, 783.99].forEach((f, i) => { const oscillator = context.createOscillator(), gain = context.createGain(); oscillator.type = 'sine'; oscillator.frequency.value = f; gain.gain.setValueAtTime(0, context.currentTime + i * .11); gain.gain.linearRampToValueAtTime(.075, context.currentTime + i * .11 + .03); gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + i * .11 + .5); oscillator.connect(gain); gain.connect(context.destination); oscillator.start(context.currentTime + i * .11); oscillator.stop(context.currentTime + i * .11 + .5); }); setTimeout(() => void context.close(), 1200); } catch { /* Audio is optional; the visual reward is always available. */ }
 }
 
+const CAPY_NOTES = [
+  { src: '/capy-crown.png', alt: 'Capy đội vương miện mỉm cười', line1: 'Mỗi ngày một chút.', line2: 'Capy luôn ở đây.' },
+  { src: '/capy-writer.png', alt: 'Capy chăm chú đọc bài viết', line1: 'Từng dòng chữ nhỏ.', line2: 'Nuôi lớn ước mơ.' },
+  { src: '/capy-cheer.png', alt: 'Capy đội mũ nồi cổ vũ', line1: 'Hôm nay thật tuyệt!', line2: 'Capy tự hào về bạn.' },
+  { src: '/capy-scholar.png', alt: 'Capy học giả đọc sách', line1: 'Chậm rãi mà bền bỉ.', line2: 'Bạn đang làm rất tốt.' },
+] as const;
+
 function App() {
   const [initial] = useState(readInitial);
   const [progress, setProgress] = useState(initial.progress);
@@ -58,12 +65,15 @@ function App() {
   const [selectedWorld, setSelectedWorld] = useState(activeWorld(progress.pieces));
   const [resetConfirm, setResetConfirm] = useState(false);
   const [toast, setToast] = useState('');
+  const [noteOffset, setNoteOffset] = useState(0);
   const sceneRef = useRef<SceneHandle>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lastPage = useRef(page);
   const world = activeWorld(progress.pieces);
   const count = worldPieces(progress.pieces, world);
   const doneToday = progress.lastRewardDay === dayKey();
+  const baseNoteIdx = page === 'collection' ? 2 : page === 'journal' ? 1 : page === 'settings' ? 3 : doneToday ? 2 : 0;
+  const activeNote = CAPY_NOTES[(baseNoteIdx + noteOffset) % CAPY_NOTES.length];
   useEffect(() => {
     const change = () => { setPage(currentPage()); window.scrollTo({ top: 0 }); };
     window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change);
@@ -110,14 +120,18 @@ function App() {
       <Logo />
       <nav aria-label="Điều hướng chính" className="side-nav">{NAV.map(({ page: p, label, icon: Icon }) => <a key={p} href={`#${p}`} aria-label={label} aria-current={page === p ? 'page' : undefined}><Icon aria-hidden="true" size={21} /><span>{label}</span>{page === p && <span className="nav-indicator" />}</a>)}</nav>
       <div className="sidebar-bottom">
-        <div className="capy-note"><div className="note-art"><img src="/capy-scholar.png" width="60" height="60" alt="Capy học giả" /><Heart aria-hidden="true" size={15} /></div><p>Mỗi ngày một chút.<br /><strong>Capy luôn ở đây.</strong></p></div>
+        <button type="button" className="capy-note" onClick={() => setNoteOffset(n => (n + 1) % CAPY_NOTES.length)} aria-label="Đổi biểu cảm của Capy">
+          <div className="note-art"><img src={activeNote.src} width="64" height="64" alt={activeNote.alt} /><Heart aria-hidden="true" size={15} /></div>
+          <p>{activeNote.line1}<br /><strong>{activeNote.line2}</strong></p>
+          <span className="note-dots" aria-hidden="true">{CAPY_NOTES.map((_, i) => <i key={i} className={i === (baseNoteIdx + noteOffset) % CAPY_NOTES.length ? 'active' : ''} />)}</span>
+        </button>
         <button className="nav-button" onClick={() => setHelp(true)}><CircleHelp aria-hidden="true" size={20} /> Cách chơi</button>
         <a className={`nav-button ${page === 'settings' ? 'selected' : ''}`} href="#settings" aria-current={page === 'settings' ? 'page' : undefined}><Settings aria-hidden="true" size={20} /> Cài đặt</a>
         <div className="sidebar-footer"><Leaf aria-hidden="true" size={13} /> Made for your little progress</div>
       </div>
     </aside>
     <div className="main-shell">
-      <header className="topbar"><div className="mobile-brand"><Logo compact /></div><span className="topbar-location"><Sprout aria-hidden="true" size={17} /> Nơi những điều nhỏ lớn lên</span><div className="topbar-actions"><ThemeToggle /><span className="demo-badge"><span />{progress.demo ? 'Dữ liệu demo' : 'Lưu trên máy'}</span><button className="icon-button help-top" aria-label="Hướng dẫn cách chơi" onClick={() => setHelp(true)}><CircleHelp aria-hidden="true" size={20} /></button><a href="#settings" className="avatar" aria-label="Mở cài đặt"><img src="/capy-scholar.png" width="38" height="38" alt="Capy" /></a></div></header>
+      <header className="topbar"><div className="mobile-brand"><Logo compact /></div><span className="topbar-location"><Sprout aria-hidden="true" size={17} /> Nơi những điều nhỏ lớn lên</span><div className="topbar-actions"><ThemeToggle /><span className="demo-badge"><span />{progress.demo ? 'Dữ liệu demo' : 'Lưu trên máy'}</span><button className="icon-button help-top" aria-label="Hướng dẫn cách chơi" onClick={() => setHelp(true)}><CircleHelp aria-hidden="true" size={20} /></button><a href="#settings" className="avatar" aria-label="Mở cài đặt"><img src="/capy-avatar.png" width="38" height="38" alt="Capy" /></a></div></header>
       <main id="main" tabIndex={-1}>
         {issue && <div className="notice error-notice" role="alert"><ShieldCheck aria-hidden="true" size={20} /><p>{issue}</p><a href="#settings">Cài đặt <ArrowRight aria-hidden="true" size={15} /></a></div>}
         <div className="page-heading"><div><h1 tabIndex={-1} ref={headingRef}>{page === 'home' ? <>Một bài viết, <span>một mảnh hạnh phúc.</span></> : page === 'collection' ? 'Những thế giới của bạn.' : page === 'journal' ? 'Mỗi trang viết, một bước xa hơn.' : 'Để góc nhỏ hợp với bạn.'}</h1><p>{page === 'home' ? 'Chào bạn! Cùng Capy xây một điều dễ thương hôm nay nhé.' : page === 'collection' ? 'Những cố gắng nhỏ, ở lại thành những điều thật đẹp.' : page === 'journal' ? 'Mọi bài viết đều được giữ lại. Mọi cố gắng đều đáng nhớ.' : 'Một vài tùy chỉnh nhỏ để viết thật thoải mái.'}</p></div><Sun aria-hidden="true" className="heading-sun" size={40} strokeWidth={1.3} /></div>
@@ -216,7 +230,7 @@ function WritingForm({ complete, doneToday, onSubmit, onHelp, onDraftError }: { 
     busyRef.current = true; setSaving(true); setError('');
     try { await new Promise<void>(r => setTimeout(r, 180)); onSubmit(text, task); setText(''); setFileName(''); setSavedDraft(false); } catch (e) { setError(e instanceof Error ? e.message : 'Chưa lưu được bài. Bản nháp vẫn còn; hãy thử lại.'); } finally { busyRef.current = false; setSaving(false); }
   }
-  return <section className="writing-panel" aria-labelledby="writing-title"><div className="writing-heading"><span className="writing-icon"><NotebookPen aria-hidden="true" size={22} /></span><h2 id="writing-title">Hôm nay, bạn viết gì?</h2></div><p className="writing-description">Dành một chút thời gian cho mình.<br />Capy sẽ chờ bạn ở đây.</p><form onSubmit={submit} noValidate>
+  return <section className="writing-panel" aria-labelledby="writing-title"><div className="writing-heading"><span className="writing-icon"><NotebookPen aria-hidden="true" size={22} /></span><h2 id="writing-title">Hôm nay, bạn viết gì?</h2><img className="writing-capy-mascot" src="/capy-writer.png" width="52" height="43" alt="" aria-hidden="true" /></div><p className="writing-description">Dành một chút thời gian cho mình.<br />Capy sẽ chờ bạn ở đây.</p><form onSubmit={submit} noValidate>
     <fieldset className="task-selector"><legend>Chọn dạng bài</legend>{([1, 2] as Task[]).map(t => <label key={t} className={task === t ? 'checked' : ''}><input type="radio" name="task" value={t} checked={task === t} onChange={() => { setTask(t); setError(''); }} /><span>Task {t}<small>{minimumWords(t)}+ từ</small></span>{task === t && <Check aria-hidden="true" size={14} />}</label>)}</fieldset>
     <div className="input-tabs" role="tablist" aria-label="Cách nhập bài"><button type="button" role="tab" id="paste-tab" aria-selected={mode === 'paste'} aria-controls="writing-input" onClick={() => setMode('paste')} onKeyDown={e => { if (e.key === 'ArrowRight') { setMode('upload'); document.getElementById('upload-tab')?.focus(); } }} tabIndex={mode === 'paste' ? 0 : -1}><FileText aria-hidden="true" size={15} /> Dán bài viết</button><button type="button" role="tab" id="upload-tab" aria-selected={mode === 'upload'} aria-controls="writing-upload" onClick={() => setMode('upload')} onKeyDown={e => { if (e.key === 'ArrowLeft') { setMode('paste'); document.getElementById('paste-tab')?.focus(); } }} tabIndex={mode === 'upload' ? 0 : -1}><Upload aria-hidden="true" size={15} /> Tải tệp lên</button></div>
     {mode === 'paste' && (reading ? <p className="import-notice" role="status">Đang đọc nội dung tệp… Bạn đợi một chút nhé.</p> : fileName && <p className="import-notice" role="status"><FileText aria-hidden="true" size={15} /><span>Đã đọc <strong>{fileName}</strong>. Bạn có thể sửa nội dung trước khi lưu.</span></p>)}
