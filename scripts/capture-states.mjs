@@ -1,0 +1,25 @@
+import { chromium } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+const out = '.impeccable/review'; await mkdir(out, { recursive: true });
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+const page = await context.newPage(); const errors = []; page.on('pageerror', e => errors.push(e.message));
+const writing = Array.from({ length: 260 }, (_, i) => `word${i}`).join(' ');
+async function shot(name, fullPage = true) { if (fullPage) await page.evaluate(() => window.scrollTo(0, 0)); await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(350); await page.screenshot({ path: `${out}/${name}.png`, fullPage }); }
+await page.goto('http://localhost:5173'); await page.locator('canvas').waitFor();
+await page.getByRole('button', { name: 'Lưu bài & nhận mảnh' }).click(); await shot('error');
+await page.getByRole('tab', { name: 'Tải tệp lên' }).click(); await shot('upload');
+await page.getByRole('tab', { name: 'Dán bài viết' }).click();
+await page.getByRole('textbox', { name: /Bài viết IELTS/ }).fill(writing);
+await page.getByRole('button', { name: 'Lưu bài & nhận mảnh' }).click(); await page.locator('dialog canvas').waitFor(); await shot('reward', false);
+await page.getByRole('button', { name: 'Về ngắm công trình' }).click(); await shot('awarded');
+await page.setViewportSize({ width: 390, height: 844 }); await page.evaluate(() => window.scrollTo(0, 0));
+await page.getByRole('button', { name: 'Viết hôm nay' }).click(); await shot('mobile-writing', false);
+await page.goto('http://localhost:5173/#journal'); await page.getByRole('searchbox').fill('no-such-result'); await shot('empty-search');
+await page.goto('http://localhost:5173/#settings'); await page.getByRole('button', { name: 'Tìm hiểu cách hoạt động' }).click(); await shot('mobile-help', false); await page.keyboard.press('Escape');
+await page.evaluate(() => { const p = JSON.parse(localStorage.getItem('writing-award:v1')); p.pieces = 20; p.lastRewardDay = null; localStorage.setItem('writing-award:v1', JSON.stringify(p)); });
+await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('http://localhost:5173');
+await page.getByRole('textbox', { name: /Bài viết IELTS/ }).fill(writing); await page.getByRole('button', { name: 'Lưu bài & nhận mảnh' }).click(); await shot('world-complete', false);
+await page.getByRole('button', { name: 'Về ngắm công trình' }).click(); await shot('completed-collection');
+await writeFile(`${out}/state-console-errors.json`, JSON.stringify(errors));
+await browser.close(); console.log('Captured error, upload, reward, awarded, mobile writer/help, search empty and completed world. Console errors:', errors);

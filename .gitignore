@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.netlify/
+.env
+test-results/
+playwright-report/
+*.local
+*.tsbuildinfo
+.impeccable/review/
+.impeccable/critique/snapshots/

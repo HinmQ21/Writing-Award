@@ -1,0 +1,622 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-09T17:31:25.529Z",
+  "title": "Design System: Writing Award",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Ivory",
+        "tonalRamp": [
+          "oklch(15.0% 0.0023 71.9)",
+          "oklch(26.0% 0.0051 71.9)",
+          "oklch(38.0% 0.0079 71.9)",
+          "oklch(50.0% 0.0107 71.9)",
+          "oklch(62.0% 0.0113 71.9)",
+          "oklch(74.0% 0.0090 71.9)",
+          "oklch(86.0% 0.0056 71.9)",
+          "oklch(95.0% 0.0020 71.9)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Warm Porcelain",
+        "tonalRamp": [
+          "oklch(15.0% 0.0011 84.6)",
+          "oklch(26.0% 0.0026 84.6)",
+          "oklch(38.0% 0.0040 84.6)",
+          "oklch(50.0% 0.0054 84.6)",
+          "oklch(62.0% 0.0057 84.6)",
+          "oklch(74.0% 0.0046 84.6)",
+          "oklch(86.0% 0.0028 84.6)",
+          "oklch(95.0% 0.0010 84.6)"
+        ]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Navigation Cream",
+        "tonalRamp": [
+          "oklch(15.0% 0.0015 80.7)",
+          "oklch(26.0% 0.0033 80.7)",
+          "oklch(38.0% 0.0051 80.7)",
+          "oklch(50.0% 0.0070 80.7)",
+          "oklch(62.0% 0.0073 80.7)",
+          "oklch(74.0% 0.0059 80.7)",
+          "oklch(86.0% 0.0037 80.7)",
+          "oklch(95.0% 0.0013 80.7)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Warm Brown",
+        "tonalRamp": [
+          "oklch(15.0% 0.0039 54.4)",
+          "oklch(26.0% 0.0088 54.4)",
+          "oklch(38.0% 0.0137 54.4)",
+          "oklch(50.0% 0.0186 54.4)",
+          "oklch(62.0% 0.0195 54.4)",
+          "oklch(74.0% 0.0156 54.4)",
+          "oklch(86.0% 0.0098 54.4)",
+          "oklch(95.0% 0.0035 54.4)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Brown",
+        "tonalRamp": [
+          "oklch(15.0% 0.0038 64.4)",
+          "oklch(26.0% 0.0085 64.4)",
+          "oklch(38.0% 0.0133 64.4)",
+          "oklch(50.0% 0.0180 64.4)",
+          "oklch(62.0% 0.0190 64.4)",
+          "oklch(74.0% 0.0152 64.4)",
+          "oklch(86.0% 0.0095 64.4)",
+          "oklch(95.0% 0.0034 64.4)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Paper Edge",
+        "tonalRamp": [
+          "oklch(15.0% 0.0031 77.1)",
+          "oklch(26.0% 0.0070 77.1)",
+          "oklch(38.0% 0.0108 77.1)",
+          "oklch(50.0% 0.0147 77.1)",
+          "oklch(62.0% 0.0155 77.1)",
+          "oklch(74.0% 0.0124 77.1)",
+          "oklch(86.0% 0.0077 77.1)",
+          "oklch(95.0% 0.0028 77.1)"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Strong Paper Edge",
+        "tonalRamp": [
+          "oklch(15.0% 0.0040 62.4)",
+          "oklch(26.0% 0.0089 62.4)",
+          "oklch(38.0% 0.0139 62.4)",
+          "oklch(50.0% 0.0188 62.4)",
+          "oklch(62.0% 0.0198 62.4)",
+          "oklch(74.0% 0.0159 62.4)",
+          "oklch(86.0% 0.0099 62.4)",
+          "oklch(95.0% 0.0036 62.4)"
+        ]
+      },
+      "peach": {
+        "role": "secondary",
+        "displayName": "Warm Peach",
+        "tonalRamp": [
+          "oklch(15.0% 0.0206 35.0)",
+          "oklch(26.0% 0.0463 35.0)",
+          "oklch(38.0% 0.0720 35.0)",
+          "oklch(50.0% 0.0977 35.0)",
+          "oklch(62.0% 0.1029 35.0)",
+          "oklch(74.0% 0.0823 35.0)",
+          "oklch(86.0% 0.0514 35.0)",
+          "oklch(95.0% 0.0185 35.0)"
+        ]
+      },
+      "peach-soft": {
+        "role": "secondary",
+        "displayName": "Peach Paper",
+        "tonalRamp": [
+          "oklch(15.0% 0.0041 58.1)",
+          "oklch(26.0% 0.0091 58.1)",
+          "oklch(38.0% 0.0142 58.1)",
+          "oklch(50.0% 0.0192 58.1)",
+          "oklch(62.0% 0.0203 58.1)",
+          "oklch(74.0% 0.0162 58.1)",
+          "oklch(86.0% 0.0101 58.1)",
+          "oklch(95.0% 0.0036 58.1)"
+        ]
+      },
+      "lavender": {
+        "role": "primary",
+        "displayName": "Pastel Lavender",
+        "tonalRamp": [
+          "oklch(15.0% 0.0207 293.9)",
+          "oklch(26.0% 0.0465 293.9)",
+          "oklch(38.0% 0.0724 293.9)",
+          "oklch(50.0% 0.0982 293.9)",
+          "oklch(62.0% 0.1034 293.9)",
+          "oklch(74.0% 0.0827 293.9)",
+          "oklch(86.0% 0.0517 293.9)",
+          "oklch(95.0% 0.0186 293.9)"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Deep Lavender",
+        "tonalRamp": [
+          "oklch(15.0% 0.0178 303.5)",
+          "oklch(26.0% 0.0401 303.5)",
+          "oklch(38.0% 0.0623 303.5)",
+          "oklch(50.0% 0.0846 303.5)",
+          "oklch(62.0% 0.0891 303.5)",
+          "oklch(74.0% 0.0712 303.5)",
+          "oklch(86.0% 0.0445 303.5)",
+          "oklch(95.0% 0.0160 303.5)"
+        ]
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Pressed Lavender",
+        "tonalRamp": [
+          "oklch(15.0% 0.0167 302.3)",
+          "oklch(26.0% 0.0375 302.3)",
+          "oklch(38.0% 0.0584 302.3)",
+          "oklch(50.0% 0.0793 302.3)",
+          "oklch(62.0% 0.0834 302.3)",
+          "oklch(74.0% 0.0668 302.3)",
+          "oklch(86.0% 0.0417 302.3)",
+          "oklch(95.0% 0.0150 302.3)"
+        ]
+      },
+      "primary-soft": {
+        "role": "primary",
+        "displayName": "Lavender Paper",
+        "tonalRamp": [
+          "oklch(15.0% 0.0043 306.8)",
+          "oklch(26.0% 0.0096 306.8)",
+          "oklch(38.0% 0.0149 306.8)",
+          "oklch(50.0% 0.0203 306.8)",
+          "oklch(62.0% 0.0213 306.8)",
+          "oklch(74.0% 0.0171 306.8)",
+          "oklch(86.0% 0.0107 306.8)",
+          "oklch(95.0% 0.0038 306.8)"
+        ]
+      },
+      "mint": {
+        "role": "secondary",
+        "displayName": "Mint Paper",
+        "tonalRamp": [
+          "oklch(15.0% 0.0063 143.9)",
+          "oklch(26.0% 0.0143 143.9)",
+          "oklch(38.0% 0.0222 143.9)",
+          "oklch(50.0% 0.0301 143.9)",
+          "oklch(62.0% 0.0317 143.9)",
+          "oklch(74.0% 0.0254 143.9)",
+          "oklch(86.0% 0.0159 143.9)",
+          "oklch(95.0% 0.0057 143.9)"
+        ]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Leaf Green",
+        "tonalRamp": [
+          "oklch(15.0% 0.0123 143.8)",
+          "oklch(26.0% 0.0277 143.8)",
+          "oklch(38.0% 0.0432 143.8)",
+          "oklch(50.0% 0.0586 143.8)",
+          "oklch(62.0% 0.0617 143.8)",
+          "oklch(74.0% 0.0493 143.8)",
+          "oklch(86.0% 0.0308 143.8)",
+          "oklch(95.0% 0.0111 143.8)"
+        ]
+      },
+      "scene": {
+        "role": "neutral",
+        "displayName": "Sage Ground",
+        "tonalRamp": [
+          "oklch(15.0% 0.0032 118.1)",
+          "oklch(26.0% 0.0073 118.1)",
+          "oklch(38.0% 0.0113 118.1)",
+          "oklch(50.0% 0.0154 118.1)",
+          "oklch(62.0% 0.0162 118.1)",
+          "oklch(74.0% 0.0130 118.1)",
+          "oklch(86.0% 0.0081 118.1)",
+          "oklch(95.0% 0.0029 118.1)"
+        ]
+      },
+      "blue-soft": {
+        "role": "tertiary",
+        "displayName": "Blue Paper",
+        "tonalRamp": [
+          "oklch(15.0% 0.0017 236.6)",
+          "oklch(26.0% 0.0038 236.6)",
+          "oklch(38.0% 0.0059 236.6)",
+          "oklch(50.0% 0.0080 236.6)",
+          "oklch(62.0% 0.0084 236.6)",
+          "oklch(74.0% 0.0067 236.6)",
+          "oklch(86.0% 0.0042 236.6)",
+          "oklch(95.0% 0.0015 236.6)"
+        ]
+      },
+      "blue": {
+        "role": "tertiary",
+        "displayName": "Slate Blue",
+        "tonalRamp": [
+          "oklch(15.0% 0.0109 241.6)",
+          "oklch(26.0% 0.0245 241.6)",
+          "oklch(38.0% 0.0381 241.6)",
+          "oklch(50.0% 0.0517 241.6)",
+          "oklch(62.0% 0.0545 241.6)",
+          "oklch(74.0% 0.0436 241.6)",
+          "oklch(86.0% 0.0272 241.6)",
+          "oklch(95.0% 0.0098 241.6)"
+        ]
+      },
+      "error": {
+        "role": "tertiary",
+        "displayName": "Clay Red",
+        "tonalRamp": [
+          "oklch(15.0% 0.0267 29.3)",
+          "oklch(26.0% 0.0600 29.3)",
+          "oklch(38.0% 0.0933 29.3)",
+          "oklch(50.0% 0.1266 29.3)",
+          "oklch(62.0% 0.1333 29.3)",
+          "oklch(74.0% 0.1066 29.3)",
+          "oklch(86.0% 0.0667 29.3)",
+          "oklch(95.0% 0.0240 29.3)"
+        ]
+      },
+      "error-soft": {
+        "role": "tertiary",
+        "displayName": "Blush Notice",
+        "tonalRamp": [
+          "oklch(15.0% 0.0038 46.8)",
+          "oklch(26.0% 0.0085 46.8)",
+          "oklch(38.0% 0.0132 46.8)",
+          "oklch(50.0% 0.0179 46.8)",
+          "oklch(62.0% 0.0188 46.8)",
+          "oklch(74.0% 0.0150 46.8)",
+          "oklch(86.0% 0.0094 46.8)",
+          "oklch(95.0% 0.0034 46.8)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "White",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.0% 0.0000 0.0)",
+          "oklch(38.0% 0.0000 0.0)",
+          "oklch(50.0% 0.0000 0.0)",
+          "oklch(62.0% 0.0000 0.0)",
+          "oklch(74.0% 0.0000 0.0)",
+          "oklch(86.0% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Page Heading",
+        "purpose": "Rounded primary orientation heading; responsive size is source-defined."
+      },
+      "headline": {
+        "displayName": "Section Heading",
+        "purpose": "World, writing and settings sections."
+      },
+      "title": {
+        "displayName": "Small Heading",
+        "purpose": "Smaller contextual headings; journal titles use the bundled 700 Nunito face."
+      },
+      "body": {
+        "displayName": "Essay Reading",
+        "purpose": "Saved essay text, preserved line breaks and 70ch reading measure."
+      },
+      "editor": {
+        "displayName": "Essay Input",
+        "purpose": "Comfortable long-form editing in Nunito Sans."
+      },
+      "supporting": {
+        "displayName": "Supporting Copy",
+        "purpose": "Page descriptions and guidance."
+      },
+      "label": {
+        "displayName": "Control Label",
+        "purpose": "Standard buttons, retaining sentence case."
+      }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 8px 24px rgb(69 58 51 / 10%)",
+        "purpose": "Scene controls, locked-world emblem and toast."
+      },
+      {
+        "name": "modal",
+        "value": "0 24px 80px rgb(69 58 51 / 20%)",
+        "purpose": "Native modal dialogs."
+      },
+      {
+        "name": "editor-focus",
+        "value": "0 0 0 2px var(--color-primary-soft)",
+        "purpose": "Focus halo, paired with the primary border."
+      }
+    ],
+    "motion": [
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Control color, border and button feedback."
+      },
+      {
+        "name": "duration-normal",
+        "value": "240ms",
+        "purpose": "Normal entrances, switch movement and collection border state."
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "Dialog and toast entrances, switch and confetti where explicitly applied."
+      },
+      {
+        "name": "earned-piece",
+        "value": "850ms",
+        "purpose": "Actual earned geometry drops to its final model position; disabled by reduced motion."
+      },
+      {
+        "name": "confetti",
+        "value": "1600ms",
+        "purpose": "Bounded celebration with 30ms item stagger; removed by reduced motion."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "Removes dialog/toast/confetti animations, button/switch/collection transitions, button press translation and piece drop; spinner becomes static."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-desktop",
+        "value": "min-width: 1600px"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "max-width: 1279px"
+      },
+      {
+        "name": "icon-rail",
+        "value": "max-width: 1050px and min-width: 761px"
+      },
+      {
+        "name": "mobile",
+        "value": "max-width: 760px"
+      },
+      {
+        "name": "narrow-mobile",
+        "value": "max-width: 374px"
+      }
+    ],
+    "implementation": {
+      "sources": [
+        "src/styles.css",
+        "src/main.tsx",
+        "src/App.tsx",
+        "src/Scene.tsx"
+      ],
+      "authority": [
+        "docs/Writing_Award_UX_Design_v2.md",
+        "docs/a_detailed_ui_ux_concept_presentation_for_a_cute_w.png",
+        "PRODUCT.md",
+        "design-system/writing-award/MASTER.md",
+        ".impeccable/surfaces/dashboard.md"
+      ],
+      "scope": [
+        "home",
+        "collection",
+        "journal",
+        "settings"
+      ],
+      "world": "Shipped procedural Three.js Phase 1 toy diorama; no scene raster or production GLB artwork.",
+      "tonalRamps": "Synthesized OKLCH preview metadata only. These eight-step strips are not new application tokens or alternate themes.",
+      "fontDelivery": "Self-hosted Nunito 700/800 and Nunito Sans 400/600, Vietnamese and Latin subsets.",
+      "focus": "3px solid var(--color-primary), 4px offset; search and editor use the documented container treatments.",
+      "backdrop": "rgb(53 46 42 / 42%)",
+      "layering": {
+        "navigation": "20",
+        "toast": "30"
+      },
+      "sceneMaterials": "High-roughness cream walls, rose roof, honey trim, brown timber, sage foliage, pink flowers, pale water and gold rewards; exact object colors remain in src/Scene.tsx.",
+      "sceneLighting": "Warm hemisphere and key light, lavender fill, soft shadows; orthographic projection.",
+      "earnedPiecePreview": "Selected geometry is isolated, its world matrix is updated, its actual bounds are centered and fitted, and only that piece is displayed.",
+      "verificationLimits": [
+        "Physical Safari/iPhone remains untested.",
+        "Three.js engine payload advisory is not a visual token."
+      ],
+      "notCanonized": "No unresolved visual defect was identified in the finish verdict. The two reported defects, reward framing and corrupted accessible copy, were fixed before extraction."
+    },
+    "appearance": {
+      "defaultPreference": "system",
+      "preferenceKey": "writing-award:theme:v1",
+      "options": [
+        "light",
+        "dark",
+        "system"
+      ],
+      "darkColors": {
+        "bg": "#211e24",
+        "surface": "#2a262e",
+        "sidebar": "#252128",
+        "text": "#f1e7dc",
+        "muted": "#c5b7ad",
+        "border": "#48404c",
+        "border-strong": "#8e7d92",
+        "peach-soft": "#40302e",
+        "primary": "#c6b2ed",
+        "primary-hover": "#d4c2f6",
+        "primary-soft": "#3c304b",
+        "mint": "#2e4035",
+        "success": "#b7d5ad",
+        "scene": "#25262b",
+        "blue-soft": "#2b3643",
+        "blue": "#b2cbdc",
+        "error": "#ffb5a7",
+        "error-soft": "#442e30",
+        "on-primary": "#30253e",
+        "on-error": "#45201a",
+        "toast-bg": "#e3d5c9",
+        "toast-text": "#302832",
+        "scrim": "rgb(10 8 13 / 70%)",
+        "spinner-track": "rgb(48 37 62 / 25%)"
+      },
+      "shadowOverrides": {
+        "float": "0 8px 24px rgb(0 0 0 / 25%)",
+        "modal": "0 24px 80px rgb(0 0 0 / 45%)"
+      },
+      "behavior": "System follows live prefers-color-scheme; saved explicit choice wins. The pre-React bootstrap, color-scheme, meta theme-color and cross-tab storage sync use the same preference. Scene lighting changes in place; drafts and camera remain intact."
+    },
+    "implementationNotes": {
+      "appearance": "Light frontmatter defaults plus extensions.appearance.darkColors. Foreground tokens on-primary/on-error, toast colors, scrim and spinner are theme aware."
+    },
+    "upload": {
+      "formats": [
+        "docx",
+        "txt",
+        "md"
+      ],
+      "maxFileBytes": 5242880,
+      "maxExtractedCharacters": 100000,
+      "wordWorkerTimeoutMs": 15000,
+      "wordExtraction": "Local plain-text extraction in an on-demand worker; no HTML or images rendered.",
+      "behavior": "Successful imports open the editable text tab with filename and review guidance. Failed imports preserve the draft. New imports or unmount cancel the prior worker.",
+      "legacyWord": "Save binary .doc as .docx first."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "L?u b?i & nh?n m?nh",
+      "html": "<button class=\"ds-button-primary\" type=\"button\">L?u b?i & nh?n m?nh<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-7-7 7 7-7 7\"/></svg></button>",
+      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:12px 18px;border:0;border-radius:var(--radius-md);font-family:'Nunito Sans',sans-serif;font-size:13px;font-weight:600;line-height:1.5;cursor:pointer;transition:background var(--duration-fast),transform var(--duration-fast);background:var(--color-primary);color:var(--color-on-primary);}.ds-button-primary:hover:not(:disabled){background:var(--color-primary-hover);}.ds-button-primary:focus-visible{outline:3px solid var(--color-primary);outline-offset:4px;}.ds-button-primary:active:not(:disabled){transform:translateY(1px);}.ds-button-primary:disabled{opacity:.55;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition:none;}.ds-button-primary:active:not(:disabled){transform:none;}}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "T?i b?n sao",
+      "html": "<button class=\"ds-button-secondary\" type=\"button\">T?i b?n sao<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-7-7 7 7-7 7\"/></svg></button>",
+      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:12px 18px;border:0;border-radius:var(--radius-md);font-family:'Nunito Sans',sans-serif;font-size:13px;font-weight:600;line-height:1.5;cursor:pointer;transition:background var(--duration-fast),transform var(--duration-fast);background:var(--color-primary-soft);color:var(--color-primary);}.ds-button-secondary:hover:not(:disabled){background:var(--color-mint);color:var(--color-success);}.ds-button-secondary:focus-visible{outline:3px solid var(--color-primary);outline-offset:4px;}.ds-button-secondary:active:not(:disabled){transform:translateY(1px);}.ds-button-secondary:disabled{opacity:.55;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-secondary{transition:none;}.ds-button-secondary:active:not(:disabled){transform:none;}}"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "X?a v? b?t ??u m?i",
+      "html": "<button class=\"ds-button-danger\" type=\"button\">X?a v? b?t ??u m?i<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-7-7 7 7-7 7\"/></svg></button>",
+      "css": ".ds-button-danger{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:12px 18px;border:0;border-radius:var(--radius-md);font-family:'Nunito Sans',sans-serif;font-size:13px;font-weight:600;line-height:1.5;cursor:pointer;transition:background var(--duration-fast),transform var(--duration-fast);background:var(--color-error);color:var(--color-on-error);}.ds-button-danger:hover:not(:disabled){background:var(--color-error);}.ds-button-danger:focus-visible{outline:3px solid var(--color-primary);outline-offset:4px;}.ds-button-danger:active:not(:disabled){transform:translateY(1px);}.ds-button-danger:disabled{opacity:.55;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-danger{transition:none;}.ds-button-danger:active:not(:disabled){transform:none;}}"
+    },
+    {
+      "name": "Text Action",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Low-emphasis help and navigation action.",
+      "html": "<button class=\"ds-text-action\" type=\"button\">M?t m?nh ???c t?nh th? n?o? <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-7-7 7 7-7 7\"/></svg></button>",
+      "css": ".ds-text-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:5px 0;border:0;background:transparent;color:var(--color-primary);font-family:'Nunito Sans',sans-serif;font-size:12px;cursor:pointer;}.ds-text-action:hover:not(:disabled){text-decoration:underline;text-underline-offset:4px;}.ds-text-action:focus-visible{outline:3px solid var(--color-primary);outline-offset:4px;}.ds-text-action:disabled{opacity:.55;cursor:not-allowed;}"
+    },
+    {
+      "name": "Scene Control Tray",
+      "kind": "custom",
+      "refersTo": "scene-controls",
+      "description": "Floating icon buttons provide alternatives to drag, with 44px height. Preview buttons illustrate the source control appearance.",
+      "html": "<div class=\"ds-scene-tray\" role=\"group\" aria-label=\"?i?u khi?n m? h?nh\"><button class=\"ds-scene-icon\" type=\"button\" aria-label=\"Xoay m? h?nh sang tr?i\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m15 18-6-6 6-6\"/></svg></button><button class=\"ds-scene-icon\" type=\"button\" aria-label=\"Xoay m? h?nh sang ph?i\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"/></svg></button><button class=\"ds-scene-icon\" type=\"button\" aria-label=\"Thu nh? m? h?nh\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/></svg></button><button class=\"ds-scene-icon\" type=\"button\" aria-label=\"Ph?ng to m? h?nh\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14m-7-7h14\"/></svg></button><button class=\"ds-scene-icon\" type=\"button\" aria-label=\"??t l?i g?c nh?n\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 11a9 9 0 1 1 2.7 6.4M3 4v7h7\"/></svg></button></div>",
+      "css": ".ds-scene-tray{display:inline-flex;align-items:center;padding:2px 4px;background:var(--color-surface);border-radius:30px;box-shadow:var(--shadow-float);}.ds-scene-icon{display:inline-flex;align-items:center;justify-content:center;width:40px;height:44px;padding:0;border:0;border-radius:50%;color:var(--color-muted);background:transparent;cursor:pointer;transition:color var(--duration-fast),background var(--duration-fast);}.ds-scene-icon:hover{color:var(--color-primary);background:var(--color-primary-soft);}.ds-scene-icon:focus-visible{outline:3px solid var(--color-primary);outline-offset:4px;}@media(max-width:374px){.ds-scene-icon{width:38px;}}"
+    },
+    {
+      "name": "Essay Editor",
+      "kind": "input",
+      "refersTo": "essay-editor",
+      "description": "Reading-sized essay input, draft status and live-threshold presentation within one frame. The preview is editable; its count is illustrative.",
+      "html": "<div class=\"ds-editor\"><label class=\"ds-editor-label\" for=\"ds-essay\">B?i vi?t IELTS Writing Task 2</label><textarea id=\"ds-essay\" class=\"ds-editor-input\" placeholder=\"D?n b?i Writing Task 2 c?a b?n v?o ??y?\" lang=\"en\"></textarea><div class=\"ds-editor-footer\"><span>Kho?ng nh? c?a b?n</span><span><strong>0</strong> / 250 t?</span></div></div>",
+      "css": ".ds-editor{max-width:420px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);overflow:hidden;color:var(--color-text);background:var(--color-surface);font-family:'Nunito Sans',sans-serif;transition:border-color var(--duration-fast),box-shadow var(--duration-fast);}.ds-editor-label{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}.ds-editor:focus-within{border-color:var(--color-primary);box-shadow:0 0 0 2px var(--color-primary-soft);}.ds-editor-input{display:block;width:100%;height:230px;min-height:160px;padding:16px 14px 6px;border:0;outline:0;resize:vertical;background:var(--color-surface);color:var(--color-text);font-family:'Nunito Sans',sans-serif;font-size:16px;line-height:1.8;caret-color:var(--color-primary);}.ds-editor-input::placeholder{color:var(--color-muted);opacity:1;font-size:14px;}.ds-editor-footer{display:flex;justify-content:space-between;gap:6px;padding:8px 12px 12px;color:var(--color-muted);font-size:11px;font-variant-numeric:tabular-nums;}@media(max-width:760px){.ds-editor-input{height:250px;padding:16px;}.ds-editor-footer{padding:10px 12px 12px;}}"
+    },
+    {
+      "name": "Current Navigation",
+      "kind": "nav",
+      "refersTo": "nav-active",
+      "description": "Selected desktop navigation; mobile uses the same state with icon above label.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"?i?u h??ng ch?nh\"><a class=\"ds-nav-link\" href=\"#home\" aria-current=\"page\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"21\" height=\"21\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m3 10 9-7 9 7\"/><path d=\"M5 9v10a2 2 0 0 0 2 2h3v-7h4v7h3a2 2 0 0 0 2-2V9\"/></svg><span>G?c c?a b?n</span><span class=\"ds-nav-dot\"></span></a></nav>",
+      "css": ".ds-nav{width:180px;font-family:'Nunito Sans',sans-serif;}.ds-nav-link{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 16px;border-radius:var(--radius-md);text-decoration:none;color:var(--color-primary);background:var(--color-primary-soft);font-size:14px;font-weight:700;transition:background var(--duration-fast),color var(--duration-fast);}.ds-nav-link:hover{background:var(--color-primary-soft);}.ds-nav-link:focus-visible{outline:3px solid var(--color-primary);outline-offset:4px;}.ds-nav-dot{width:5px;height:5px;border-radius:50%;background:var(--color-primary);margin-left:auto;}"
+    },
+    {
+      "name": "Achievement Chip",
+      "kind": "chip",
+      "refersTo": "achievement-chip",
+      "description": "Noninteractive earned-state label with explicit text and icon.",
+      "html": "<span class=\"ds-achievement\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 12 2 2 4-4\"/><circle cx=\"12\" cy=\"12\" r=\"10\"/></svg> ?? ho?n th?nh ? 21/21 m?nh</span>",
+      "css": ".ds-achievement{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:6px 10px;border-radius:var(--radius-sm);background:var(--color-mint);color:var(--color-success);font-family:'Nunito Sans',sans-serif;font-size:11px;}"
+    },
+    {
+      "name": "Quiet Surface",
+      "kind": "card",
+      "refersTo": "surface",
+      "description": "The warm bordered frame shared by writing, world and journal surfaces.",
+      "html": "<section class=\"ds-surface\"><h2 class=\"ds-surface-title\">H?m nay, b?n vi?t g??</h2><p class=\"ds-surface-copy\">D?nh m?t ch?t th?i gian cho m?nh.<br>Capy s? ch? b?n ? ??y.</p></section>",
+      "css": ".ds-surface{max-width:420px;padding:26px 24px 21px;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface);color:var(--color-text);}.ds-surface-title{margin:0;font-family:'Nunito',sans-serif;font-size:21px;font-weight:800;line-height:1.3;letter-spacing:-.015em;text-wrap:balance;}.ds-surface-copy{margin:9px 0 0;font-family:'Nunito Sans',sans-serif;font-size:14px;font-weight:400;line-height:1.7;color:var(--color-muted);}"
+    },
+    {
+      "name": "Earned Construction Progress",
+      "kind": "custom",
+      "description": "The source 21-step progress pattern ties the visible model to daily pieces; this is a static 12-piece example.",
+      "html": "<section class=\"ds-progress\"><div class=\"ds-progress-heading\"><span>T?ng m?nh nh?, th?nh t? ?m</span><strong>12<span> / 21 m?nh</span></strong></div><div class=\"ds-piece-track\" role=\"progressbar\" aria-label=\"Ti?n ?? x?y d?ng th? gi?i\" aria-valuenow=\"12\" aria-valuemin=\"0\" aria-valuemax=\"21\"><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece ds-earned\"></span><span class=\"ds-piece \"></span><span class=\"ds-piece \"></span><span class=\"ds-piece \"></span><span class=\"ds-piece \"></span><span class=\"ds-piece \"></span><span class=\"ds-piece \"></span><span class=\"ds-piece \"></span><span class=\"ds-piece \"></span><span class=\"ds-piece \"></span></div><div class=\"ds-progress-footer\"><span>C?n 9 ng?y vi?t ?? ho?n th?nh th? gi?i n?y.</span><a class=\"ds-progress-link\" href=\"#collection\">B? s?u t?p <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-7-7 7 7-7 7\"/></svg></a></div></section>",
+      "css": ".ds-progress{max-width:560px;padding:21px 24px 22px;background:var(--color-surface);font-family:'Nunito Sans',sans-serif;color:var(--color-text);}.ds-progress-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;}.ds-progress-heading>span{font-weight:600;}.ds-progress-heading>strong{font-family:'Nunito',sans-serif;font-size:19px;font-weight:800;color:var(--color-primary);font-variant-numeric:tabular-nums;}.ds-progress-heading>strong>span{font-family:'Nunito Sans',sans-serif;font-size:11px;font-weight:400;color:var(--color-muted);}.ds-piece-track{display:flex;gap:4px;width:100%;margin:13px 0 11px;}.ds-piece{flex:1;height:8px;border-radius:3px;background:var(--color-primary-soft);}.ds-earned{background:var(--color-lavender);}.ds-progress-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--color-muted);font-size:12px;line-height:1.5;}.ds-progress-link{display:inline-flex;align-items:center;gap:5px;min-height:28px;color:var(--color-primary);text-decoration:none;white-space:nowrap;font-weight:600;}.ds-progress-link:hover{text-decoration:underline;text-underline-offset:4px;}.ds-progress-link:focus-visible{outline:3px solid var(--color-primary);outline-offset:4px;}@media(max-width:760px){.ds-progress{padding:20px;}.ds-piece-track{gap:3px;}.ds-progress-footer{align-items:flex-start;}.ds-progress-footer>span{max-width:23ch;}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "One essay. One little piece of happiness.",
+    "overview": "Writing Award makes daily effort tangible through Capy's lasting toy cottage and the worlds that follow it. Ivory paper, rounded lettering and soft physical materials give the working interface a gentle, welcoming mood. Vietnamese guidance encourages returning to write; the visual reward is construction rather than a grade.\n\nThe interface stays calm around the dimensional scene. Warm borders and tonal surfaces organize controls, while ambient light, rounded geometry and actual earned pieces carry the playful character. This is the shipped procedural Phase 1 world: the cottage, tree and capybara are rendered in Three.js; no raster scene artwork or finished GLB asset is implied. The supplied design document and concept image establish the identity; current source establishes the exact tokens.",
+    "keyCharacteristics": [
+      "Ivory and warm brown make a legible reading ground.",
+      "Dark lavender marks action, selection and focus; pastels support progress and warmth.",
+      "Nunito headings pair with Nunito Sans reading and controls.",
+      "Quiet bordered surfaces surround a softly lit, tangible toy world.",
+      "Earned construction persists, with bounded celebration and reduced-motion support."
+    ],
+    "rules": [
+      {
+        "name": "The Pastel Ground Rule",
+        "body": "Use deep lavender, warm brown or leaf green for operational text; use pale lavender, peach and mint as supporting grounds or object color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Clear Reading Rule",
+        "body": "Keep essay text in Nunito Sans at 16px; preserve the separate rounded heading voice for orientation and reward.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Frame Rule",
+        "body": "Let the toy scene carry physical richness; keep working containers bordered and calm rather than adding clay shadows to every interface surface.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use deep lavender for action, selection and focus, with pastel grounds supporting the state.",
+      "Do use Nunito for rounded headings and Nunito Sans for essays and controls, retaining Vietnamese and Latin coverage.",
+      "Do start from the shared spacing and corner scales, then preserve documented optical adjustments.",
+      "Do keep visible controls, keyboard focus and text labels alongside scene interaction and color states.",
+      "Do show the actual earned piece and keep a settled reduced-motion alternative.",
+      "Do label demonstration progress and supported input formats in the same calm visual voice."
+    ],
+    "donts": [
+      "Don't use pale lavender as operational text on ivory.",
+      "Don't turn the working interface into a score dashboard or replace the supplied pastel toy identity with a generic marketing palette.",
+      "Don't add thick clay borders or layered sculptural shadows to ordinary writing and navigation surfaces.",
+      "Don't make dragging or animation the only way to understand or operate the scene.",
+      "Don't imply raster scene artwork, production GLB fidelity or physical-device verification that this procedural Phase 1 build does not supply."
+    ]
+  }
+}
