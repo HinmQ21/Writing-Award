@@ -29,6 +29,26 @@ Build tĩnh nằm trong `dist/`.
 - Bản demo khởi tạo 12 bài mẫu; nhãn demo và đường dẫn bắt đầu hành trình riêng hiển thị trong giao diện. Chuyển thế giới mẫu chỉ hoạt động khi còn ở chế độ demo.
 - Giao diện desktop hai cột, mobile mô hình trước khung viết, thanh điều hướng dưới và lối tắt “Viết hôm nay”.
 - Chế độ Sáng / Tối / Theo hệ thống trong Cài đặt, nút đổi nhanh trên thanh trên; lưu lựa chọn và đổi ánh sáng 3D mà không mất góc nhìn hay bản nháp.
+- **Chấm bài IELTS** tại `/#scoring`: đủ Academic/General Task 1/2, nhận diện dạng đề, ảnh biểu đồ, rubric chính thức, 4 tiêu chí với bằng chứng nguyên văn và khoảng cách tới band tiếp theo. Bấm trích dẫn để đối chiếu bài gốc; tải kết quả JSON. Chấm bài không thay đổi phần thưởng luyện viết.
+
+## Cấu hình chấm bài
+
+Đặt khóa trong `.env` (xem `.env.example`) rồi chạy lại dev server:
+
+```env
+GEMINI_API_KEY=your_key
+```
+
+Khóa chỉ ở server, không dùng `VITE_GEMINI_API_KEY`. Mặc định `gemini-3.5-flash-lite` phân tích đề và `gemini-3.8-flash` chấm bài. Cấu hình fallback theo yêu cầu bổ sung:
+
+```env
+GEMINI_EXAMINER_MODEL=gemini-3.8-flash
+GEMINI_EXAMINER_FALLBACK_MODEL=gemini-3.5-flash-lite
+```
+
+Khi model chấm trả HTTP 429/503, engine thử model fallback đúng một lần, giữ nguyên rubric/validator và ghi model thực dùng trong kết quả. Để trống fallback để tắt; đặt `GEMINI_EXAMINER_MODEL=gemini-3.5-flash-lite` để chấm trực tiếp bằng Flash-Lite. Nội dung đề/bài/ảnh được gửi tới Gemini khi bạn chủ động chấm. Bài thiếu số từ vẫn được đánh giá; Academic Task 1 thiếu ảnh không có band Task Achievement/tổng đầy đủ. Band là ước lượng, chưa được hiệu chuẩn bằng bộ bài có điểm giám khảo.
+
+API chạy cùng Vite khi `npm run dev`. Production có sẵn Netlify Function `/api/score`; đặt `GEMINI_API_KEY` trong environment của Netlify Functions rồi redeploy. Static hosting hoặc `npm run preview` riêng không phục vụ API. Xem [hướng dẫn triển khai, API, rubric và benchmark](docs/ielts-scoring-implementation.md).
 
 ## Kiểm tra
 
@@ -55,7 +75,7 @@ node scripts/capture-states.mjs
 
 ## Giới hạn bản demo
 
-Chưa có tài khoản, backend, đồng bộ thiết bị, chấm điểm AI, phát hiện sao chép hoặc xác thực ngày trên server. LocalStorage có thể bị chỉnh sửa; tính thưởng không có bảo đảm giao dịch giữa các tab nộp đồng thời. Word `.docx` được đọc nội dung văn bản tại trình duyệt; tệp `.doc` cũ cần lưu lại thành `.docx`, tệp có mật khẩu cần bỏ mật khẩu trước khi nhập. PDF chưa được đọc trực tiếp; hãy dán nội dung hoặc chuyển thành TXT. Mô hình là geometry thủ tục của Three.js, chưa phải artwork Blender/GLB ở phase 2. Tải bản sao JSON để lưu trữ; khôi phục/import JSON chưa được triển khai.
+Chưa có tài khoản, đồng bộ thiết bị, phát hiện sao chép hoặc xác thực ngày thưởng trên server. API server hiện chỉ phục vụ chấm IELTS; chưa có database, auth hoặc durable rate limiting. LocalStorage có thể bị chỉnh sửa; tính thưởng không có bảo đảm giao dịch giữa các tab nộp đồng thời. Word `.docx` được đọc nội dung văn bản tại trình duyệt; tệp `.doc` cũ cần lưu lại thành `.docx`, tệp có mật khẩu cần bỏ mật khẩu trước khi nhập. PDF chưa được đọc trực tiếp; hãy dán nội dung hoặc chuyển thành TXT. Mô hình là geometry thủ tục của Three.js, chưa phải artwork Blender/GLB ở phase 2. Tải bản sao JSON để lưu trữ; khôi phục/import JSON chưa được triển khai. Bản nháp chấm bài giữ theo tab; ảnh/kết quả chấm không có lịch sử riêng, hãy tải JSON nếu muốn giữ lại.
 
 ## Tệp thiết kế nên lưu cùng mã nguồn
 

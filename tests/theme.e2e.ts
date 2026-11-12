@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import type { Page } from '@playwright/test';
+
+// Audit settled colors, rather than intermediate colors during a theme transition.
+async function settleVisualState(page: Page) {
+  await page.evaluate(async () => { await Promise.all(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {}))); });
+}
 
 test.use({ colorScheme: 'light' });
 
@@ -67,6 +73,7 @@ test('both themes pass accessibility and reflow checks on all routes', async ({ 
     for (const route of ['home', 'collection', 'journal', 'settings']) {
       await page.setViewportSize(viewport);
       await page.goto(`/#${route}`); await page.evaluate(() => document.fonts.ready);
+      await settleVisualState(page);
       const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
       expect(results.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => ({ target: n.target, failure: n.failureSummary })) })), `${theme} ${route}`).toEqual([]);
       for (const width of [320, 390, 768, 1440]) {
@@ -92,17 +99,20 @@ test('dark appearance keeps validation, reward and destructive confirmation read
   await page.emulateMedia({ colorScheme: 'dark' }); await page.goto('/');
   await page.getByRole('button', { name: 'Lưu bài & nhận mảnh' }).click();
   await expect(page.locator('.form-error')).toBeVisible();
+  await settleVisualState(page);
   let result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(result.violations).toEqual([]);
   await page.getByRole('textbox', { name: /Bài viết IELTS/ }).fill('word '.repeat(250));
   await page.getByRole('button', { name: 'Lưu bài & nhận mảnh' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  await settleVisualState(page);
   result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(result.violations).toEqual([]);
   await page.screenshot({ path: `.impeccable/review/theme-dark-reward-${testInfo.project.name}.png` });
   await page.keyboard.press('Escape'); await page.goto('/#settings');
   await page.getByRole('button', { name: 'Bắt đầu mới', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  await settleVisualState(page);
   result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(result.violations).toEqual([]);
   await page.getByRole('button', { name: 'Giữ hành trình này' }).click();

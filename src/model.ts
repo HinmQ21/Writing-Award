@@ -2,7 +2,7 @@ export const TIMEZONE = 'Asia/Ho_Chi_Minh';
 export const STORAGE_KEY = 'writing-award:v1';
 export const DRAFT_KEY = 'writing-award:draft:v1';
 export type Task = 1 | 2;
-export type Page = 'home' | 'collection' | 'journal' | 'settings';
+export type Page = 'home' | 'collection' | 'journal' | 'scoring' | 'settings';
 export type Essay = { id: string; title: string; text: string; task: Task; words: number; date: string; rewarded: boolean; sample?: boolean };
 export type Progress = {
   version: 1; demo: boolean; essays: Essay[]; pieces: number; streak: number; freezes: number;

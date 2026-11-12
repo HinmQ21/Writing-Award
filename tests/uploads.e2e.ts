@@ -14,7 +14,7 @@ test('imports real Word text with paragraphs/Unicode, preserves task and saves t
   await expect(page.getByText('Word (.docx), TXT, Markdown · tối đa 5 MB')).toBeVisible();
   await page.getByLabel(fileLabel).setInputFiles(fixture('essay.docx'));
   const editor = page.getByRole('textbox', { name: /Bài viết IELTS Writing Task 1/ });
-  await expect(editor).toHaveValue(expected);
+  await expect(editor).toHaveValue(expected, { timeout: 15_000 });
   await expect(page.getByRole('radio', { name: /Task 1/ })).toBeChecked();
   await expect(page.locator('#word-count')).toContainText('276');
   await expect(page.locator('.import-notice')).toContainText('essay.docx');

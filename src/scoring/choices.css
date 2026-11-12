@@ -1,0 +1,31 @@
+.choice-field { min-width: 0; display: grid; gap: 10px; font-size: 14px; font-weight: 600; }
+.choice-trigger { display: flex; align-items: center; gap: 10px; text-align: left; width: 100%; min-height: 56px; padding: 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface); }
+.choice-trigger > span { flex: 1; min-width: 0; line-height: 1.5; }
+.choice-trigger svg { flex: none; color: var(--color-primary); }
+.choice-trigger:hover, .choice-trigger[aria-expanded='true'] { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.choice-popup { position: fixed; z-index: 50; overflow-y: auto; overscroll-behavior: contain; padding: 8px; background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-modal); scrollbar-color: var(--color-border-strong) var(--color-surface); }
+.choice-popup > button { display: flex; width: 100%; min-height: 48px; padding: 12px; align-items: center; justify-content: space-between; gap: 12px; text-align: left; border-radius: var(--radius-sm); }
+.choice-popup > button:hover, .choice-popup > button:focus-visible, .choice-popup > button[aria-selected='true'] { background: var(--color-primary-soft); color: var(--color-primary); }
+.choice-popup strong { display: block; font-size: 14px; font-weight: 600; }
+.choice-popup small { display: block; font-size: 12px; font-weight: 400; line-height: 1.6; color: var(--color-muted); margin-top: 3px; }
+.choice-popup svg { flex: none; }
+.scoring-journal-picker { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); }
+.scoring-journal-picker > .button { width: 100%; }
+.scoring-journal-picker input { width: 100%; min-height: 48px; border: 1px solid var(--color-border-strong); background: var(--color-surface); border-radius: var(--radius-sm); padding: 12px; margin-top: 16px; font-size: 16px; }
+.journal-picker-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.journal-picker-filters button { min-height: 44px; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; }
+.journal-picker-filters button[aria-pressed='true'] { background: var(--color-primary-soft); color: var(--color-primary); }
+.journal-picker-list { max-height: 320px; overflow-y: auto; }
+.journal-picker-list > button { display: flex; width: 100%; align-items: center; gap: 12px; text-align: left; border-bottom: 1px solid var(--color-border); padding: 16px 8px; min-height: 64px; }
+.journal-picker-list > button:hover { background: var(--color-primary-soft); }
+.journal-picker-list > button > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.journal-picker-list strong { font-size: 14px; display: block; }
+.journal-picker-list small { font-size: 12px; color: var(--color-muted); display: block; margin-top: 5px; }
+.home-score-choice { margin: 16px 0; padding: 16px; background: var(--color-primary-soft); border-radius: var(--radius-md); }
+.home-score-choice label { display: flex; align-items: center; gap: 10px; font-size: 14px; min-height: 44px; cursor: pointer; }
+.home-score-choice input { width: 18px; height: 18px; accent-color: var(--color-primary); }
+.home-score-choice p { color: var(--color-muted); font-size: 12px; line-height: 1.8; margin-top: 8px; }
+.journal-entry-wrap { display: flex; align-items: center; border-bottom: 1px solid var(--color-border); }
+.journal-entry-wrap .journal-entry { flex: 1; min-width: 0; border-bottom: 0; }
+.journal-score-action { margin-right: 16px; flex: none; }
+@media(max-width:760px) { .journal-entry-wrap { flex-wrap: wrap; } .journal-entry-wrap .journal-entry { flex-basis: 100%; } .journal-score-action { margin: 0 16px 16px; } }
