@@ -23,7 +23,9 @@ Các quan sát xác nhận timeout do request chờ không có dữ liệu trả
 
 ## Đưa lên production và xác minh tiếp
 
-Cần redeploy **cả frontend và function** cùng nhau. Chưa deploy trong lượt kiểm tra này vì phiên Netlify CLI không có đăng nhập/token và không có browser session. Sau deploy, kiểm tra response `/api/score` có `Content-Type: application/x-ndjson`, frame keepalive tới đều và frame result kết thúc.
+Cần redeploy **cả frontend và function** cùng nhau. Sau khi người dùng xác thực CLI, đã deploy production commit `793830e74185ff58359e89d7a20f85a917bd0aa8`, deploy ID `6af608d3756fe74021468920`. [Deploy log](https://app.netlify.com/projects/writing-award-capy/deploys/6af608d3756fe74021468920).
+
+Kiểm tra sau deploy: homepage phục vụ bundle mới `index-ChNlVb_X.js`; `/api/score` trả `application/x-ndjson`, frame đầu sau 1,9 giây, keepalive khoảng mỗi 5 giây. Lượt bài dài hoàn tất response sau 21,8 giây với trạng thái hợp lệ `review_required` (không xuất band vì chưa vượt validator). Lượt thử tiếp theo trả lỗi Gemini 429 trong result envelope sau 1,2 giây; frontend có thể hiển thị lỗi hạn mức cụ thể. Đường truyền streaming đã được xác minh; chưa có lượt `scored` thành công sau deploy do validation/quota của provider. Không tiếp tục gọi AI lặp lại khi gặp 429.
 
 Trong Netlify, kiểm tra environment scope Functions/Production cho `GEMINI_API_KEY`, `GEMINI_ANALYZER_MODEL`, `GEMINI_EXAMINER_MODEL`, `GEMINI_EXAMINER_FALLBACK_MODEL`. Model đã chạy được với key local ở lượt trước là analyzer `gemini-2.5-flash-lite`, examiner `gemini-2.5-flash`. Không thay key hay biến production khi chưa đọc được cấu hình đó.
 
