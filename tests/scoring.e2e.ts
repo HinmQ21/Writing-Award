@@ -70,6 +70,14 @@ test('review_required explains reassessment and returns focus to the editable fo
   await expect(page.getByRole('heading', { name: 'Bài viết của bạn', exact: true })).toBeFocused();
   await expect(page.getByLabel('Bài viết gốc', { exact: true })).toHaveValue(essay);
 });
+test('reads Netlify streaming responses and reports embedded provider errors', async ({ page }) => {
+  await page.route('**/api/score', route => route.request().method() === 'GET' ? route.fulfill({ json: { configured: true } }) : route.fulfill({ contentType: 'application/x-ndjson', body: `${JSON.stringify({ type: 'keepalive' })}\n${JSON.stringify({ type: 'result', status: 429, data: { error: 'Gemini đang hết hạn mức. Hãy thử lại sau.' } })}\n` }));
+  await fill(page); await page.getByRole('button', { name: 'Chấm bài IELTS', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('hết hạn mức'); await expect(page.locator('#scoring-essay')).toHaveValue(essay);
+  await page.route('**/api/score', route => route.fulfill({ contentType: 'application/x-ndjson', body: `${JSON.stringify({ type: 'keepalive' })}\n${JSON.stringify({ type: 'result', status: 200, data: fixture })}\n` }));
+  await page.getByRole('button', { name: 'Chấm bài IELTS', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Nhận xét cho bạn' })).toBeVisible();
+});
 test('handles letters, uploads essays, accepts chart images and preserves state when an image is invalid', async ({ page }) => {
   await page.getByRole('combobox', { name: /Loại bài thi/ }).click(); await page.getByRole('option', { name: 'General Training · Task 1', exact: false }).click(); await expect(page.getByText('Viết thư · Tự phân tích yêu cầu')).toBeVisible();
   await page.getByLabel('Tải bài viết để chấm', { exact: true }).setInputFiles({ name: 'essay.txt', mimeType: 'text/plain', buffer: Buffer.from(essay) });
