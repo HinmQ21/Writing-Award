@@ -3,7 +3,14 @@ import type { ScoringInput, ScoringResult, TaskImage } from './types';
 export async function submitScoring(input: ScoringInput, signal: AbortSignal): Promise<ScoringResult> {
   const response = await fetch('/api/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal });
   let data: unknown;
-  try { data = await response.json(); } catch { throw new Error('API chấm bài chưa sẵn sàng. Hãy chạy npm run dev hoặc dùng bản triển khai có API.'); }
+  try {
+    data = await response.json();
+  } catch {
+    if (response.status === 404 || response.headers.get('content-type')?.includes('text/html')) {
+      throw new Error('API chấm bài chưa sẵn sàng. Hãy chạy lại `npm run dev` trong terminal hoặc nhấn Ctrl + F5 nếu đang mở trên web.');
+    }
+    throw new Error('API chấm bài chưa sẵn sàng. Hãy chạy npm run dev hoặc dùng bản triển khai có API.');
+  }
   if (!response.ok) throw new Error((data as { error?: string }).error || 'Chưa chấm được bài. Hãy thử lại.');
   const result = data as ScoringResult;
   if (!['scored', 'partial', 'needs_input', 'review_required'].includes(result.status) || !result.request_id || !Array.isArray(result.quality_flags)) throw new Error('API trả về kết quả chưa đầy đủ. Hãy thử lại.');
