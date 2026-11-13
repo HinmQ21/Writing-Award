@@ -1,5 +1,13 @@
 # Verification — IELTS Writing scoring
 
+## Exact evidence regression (2026-11-13)
+
+The supplied university-versus-work essay reproduced `review_required` with no score. The examiner shortened quotes with `...` and capitalized an in-sentence `the`; the audit then incorrectly changed the essay's `believed` to `believe`. Strict validation correctly rejected those quotations, including after reassessment.
+
+The Gemini boundary now constrains evidence selection to IDs of original sentence excerpts, then resolves those IDs into the unchanged public `evidence_quotes` format before the existing validator. No fuzzy matching, essay correction, score adjustment or relaxed evidence check is used. Unknown IDs are rejected; focused reassessment uses the same mechanism, while analyzer/audit responses retain their existing format. Prompt version: `ielts_scoring_v1.2.1_source_evidence`.
+
+`npm test`: **71 passed**, including a regression with the supplied essay, invalid reference rejection, all task types, focused reassessment, Unicode and long excerpts. `npm run build`: passed. Scoring Playwright suite: **24 passed** across desktop/mobile, including evidence highlighting, provider errors and review-required recovery. A live local pipeline with the configured Flash-Lite model returned `scored`, estimated overall **7.0**, four criterion bands, and only exact original quotes in two model calls. This single smoke result does not establish grading calibration or score stability. An earlier live attempt also encountered an external HTTP 503.
+
 ## Journal/Home entry and choice-menu extension (2026-11-13)
 
 Build and all 53 unit tests passed. All 22 scoring E2E scenarios passed across desktop/mobile runs (20 on first run, corrected the journal fixture's false assumption that demo contains Task 1 essays, then reran both picker cases successfully). An additional 12-case focused regression run passed: saved drafts/daily rewards, journal reading/search, every original route at 320/390/768/1024/1440, journal picker search/filter/direct actions, Home save-to-scoring opt-in and custom menu keyboard/a11y. Two further journal draft-retention checks passed after separating saved-source IDs from stale parent prefill state. Tests use mock grading endpoints and assert no grading POST while opting in/saving or while the required prompt is missing.

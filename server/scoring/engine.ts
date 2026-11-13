@@ -99,6 +99,7 @@ export async function scoreWriting(raw: unknown, options: EngineOptions): Promis
       }
     } catch (error) {
       if (options.signal?.aborted) throw error;
+      options.log?.({ event: 'scoring_review_failed', request_id: requestId, code: error instanceof ProviderError ? error.code : 'invalid_review', prompt_version: PROMPT_VERSION });
       unresolved = ['Unable to verify the inconsistencies in the scoring result.', ...issues.map(i => i.message)];
     }
   }

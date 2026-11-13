@@ -1,4 +1,5 @@
 import type { TaskImage } from '../../src/scoring/types';
+import { prepareEvidence } from './evidence';
 export type ModelRequest = { model: string; system: string; data: unknown; schema: object; image?: TaskImage | null; signal?: AbortSignal; maxOutputTokens?: number };
 export type Generate = (request: ModelRequest) => Promise<unknown>;
 export class ProviderError extends Error {
@@ -14,14 +15,15 @@ export function generationSchema(value: unknown): unknown {
 export function createGemini(apiKey: string | undefined, fetcher: typeof fetch = fetch): Generate {
   return async request => {
     if (!apiKey) throw new ProviderError('not_configured', 'The scoring service has not been configured with a GEMINI_API_KEY on the server.');
-    const parts: object[] = [{ text: JSON.stringify({ untrusted_candidate_data: request.data }) }];
+    const evidence = prepareEvidence(request.schema, request.data);
+    const parts: object[] = [{ text: JSON.stringify({ untrusted_candidate_data: evidence?.data ?? request.data }) }];
     if (request.image) parts.push({ inlineData: { mimeType: request.image.mime_type, data: request.image.data } });
     let response: Response;
     try {
       response = await fetcher(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(request.model)}:generateContent`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         signal: request.signal,
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: request.system }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', responseJsonSchema: generationSchema(request.schema), temperature: 0.1, maxOutputTokens: request.maxOutputTokens ?? 8192 } }),
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: [request.system, evidence?.instruction].filter(Boolean).join('\n') }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', responseJsonSchema: generationSchema(evidence?.schema ?? request.schema), temperature: 0.1, maxOutputTokens: request.maxOutputTokens ?? 8192 } }),
       });
     } catch {
       if (request.signal?.aborted) throw new ProviderError('timeout', 'Scoring took too long. Your essay is safe; feel free to try again.');
@@ -36,6 +38,9 @@ export function createGemini(apiKey: string | undefined, fetcher: typeof fetch =
     const candidate = body.candidates?.[0];
     if (candidate?.finishReason !== 'STOP') throw new ProviderError('invalid_response', 'The service did not return complete scoring results. Please try again.');
     const raw = candidate.content?.parts?.filter((p: { text?: string; thought?: boolean }) => p.text && !p.thought).map((p: { text: string }) => p.text).join('');
-    try { return JSON.parse(raw); } catch { throw new ProviderError('invalid_response', 'AI result is not in valid JSON format. Please try again.'); }
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw); } catch { throw new ProviderError('invalid_response', 'AI result is not in valid JSON format. Please try again.'); }
+    try { return evidence ? evidence.resolve(parsed) : parsed; }
+    catch { throw new ProviderError('invalid_response', 'AI evidence references could not be verified. Please try again.'); }
   };
 }
