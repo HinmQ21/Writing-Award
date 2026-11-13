@@ -154,7 +154,7 @@ components:
 
 **Creative North Star: "One essay. One little piece of happiness."**
 
-Writing Award makes daily effort tangible through Capy's lasting toy cottage and the worlds that follow it. Ivory paper, rounded lettering and soft physical materials give the working interface a gentle, welcoming mood. Vietnamese guidance encourages returning to write; the visual reward is construction rather than a grade.
+Writing Award makes daily effort tangible through Capy's lasting toy cottage and the worlds that follow it. Ivory paper, rounded lettering and soft physical materials give the working interface a gentle, welcoming mood. English guidance encourages returning to write; the visual reward is construction rather than a grade. The interface language changed at the user's request on 2026-11-13; stored essays retain their original content, and Vietnamese font coverage is kept for multilingual drafts.
 
 The interface stays calm around the dimensional scene. Warm borders and tonal surfaces organize controls, while ambient light, rounded geometry and actual earned pieces carry the playful character. This is the shipped procedural Phase 1 world: the cottage, tree and capybara are rendered in Three.js; no raster scene artwork or finished GLB asset is implied. The supplied design document and concept image establish the identity; current source establishes the exact tokens.
 

@@ -9,11 +9,11 @@ export type Progress = {
   stars: number; lastRewardDay: string | null; evaluatedDay: string | null; rainyUntil: string | null; sound: boolean;
 };
 export const WORLDS = [
-  { name: "Capy's Dream Cottage", short: 'Nhà Capybara', subtitle: 'Một mái nhà nhỏ, từ những cố gắng mỗi ngày.', theme: 'cottage', color: 'peach' },
-  { name: 'Cây Thần Kỳ', short: 'Cây Thần Kỳ', subtitle: 'Để những ý tưởng mới đơm hoa.', theme: 'tree', color: 'mint' },
-  { name: 'Lego Capybara', short: 'Lego Capybara', subtitle: 'Từng khối nhỏ, một người bạn thật lớn.', theme: 'lego', color: 'lavender' },
+  { name: "Capy's Dream Cottage", short: 'Capy Cottage', subtitle: 'A cozy little home, built from everyday efforts.', theme: 'cottage', color: 'peach' },
+  { name: 'Magic Tree', short: 'Magic Tree', subtitle: 'Let new ideas blossom.', theme: 'tree', color: 'mint' },
+  { name: 'Lego Capybara', short: 'Lego Capybara', subtitle: 'Block by block, a true companion.', theme: 'lego', color: 'lavender' },
 ] as const;
-export const PIECES = ['Nền nhà', 'Bậc thềm', 'Tường trước', 'Tường bên trái', 'Tường bên phải', 'Tường phía sau', 'Cửa gỗ', 'Cửa sổ tròn', 'Cửa sổ bên', 'Mái đầu hồi', 'Mái nhà bên trái', 'Mái nhà bên phải', 'Ống khói nhỏ', 'Hàng rào bên trái', 'Hàng rào bên phải', 'Cây xanh', 'Bụi hoa', 'Vườn hoa', 'Hòm thư', 'Vương miện của Capy', 'Bảng chào mừng'];
+export const PIECES = ['Foundation', 'Step', 'Front wall', 'Left wall', 'Right wall', 'Back wall', 'Wooden door', 'Round window', 'Side window', 'Gable roof', 'Left roof', 'Right roof', 'Little chimney', 'Left fence', 'Right fence', 'Green tree', 'Flower bush', 'Flower garden', 'Mailbox', 'Capy\'s crown', 'Welcome sign'];
 
 export function dayKey(date = new Date()): string {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
@@ -59,8 +59,8 @@ export function reconcileProgress(progress: Progress, today = dayKey()): Progres
 }
 export function submitEssay(progress: Progress, text: string, task: Task, now = new Date()): { progress: Progress; rewarded: boolean; world: number; piece: number; complete: boolean } {
   const words = wordCount(text);
-  if (words < minimumWords(task)) throw new Error(`Task ${task} cần ít nhất ${minimumWords(task)} từ. Bạn còn thiếu ${minimumWords(task) - words} từ.`);
-  if (text.length > 100_000) throw new Error('Bài viết quá dài. Vui lòng giữ bài dưới 100.000 ký tự.');
+  if (words < minimumWords(task)) throw new Error(`Task ${task} needs at least ${minimumWords(task)} words. You still need ${minimumWords(task) - words} words.`);
+  if (text.length > 100_000) throw new Error('Piece is too long. Please keep it under 100,000 characters.');
   const today = dayKey(now);
   const current = reconcileProgress(progress, today);
   const newDay = current.lastRewardDay !== today;
@@ -77,8 +77,8 @@ export function submitEssay(progress: Progress, text: string, task: Task, now = 
 }
 export function parseProgress(raw: string): Progress {
   const p = JSON.parse(raw) as Progress;
-  if (p?.version !== 1 || typeof p.demo !== 'boolean' || !Array.isArray(p.essays) || !Number.isInteger(p.pieces) || p.pieces < 0 || p.pieces > 63 || !Number.isInteger(p.streak) || p.streak < 0 || !Number.isInteger(p.freezes) || p.freezes < 0 || p.freezes > 2 || !Number.isInteger(p.stars) || p.stars < 0 || p.stars > 3 || typeof p.sound !== 'boolean' || ![p.lastRewardDay, p.evaluatedDay, p.rainyUntil].every(d => d === null || (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)))) throw new Error('Dữ liệu lưu không hợp lệ.');
-  for (const e of p.essays) if (!e || typeof e.text !== 'string' || typeof e.title !== 'string' || typeof e.id !== 'string' || ![1, 2].includes(e.task) || !Number.isFinite(Date.parse(e.date)) || !Number.isFinite(e.words) || typeof e.rewarded !== 'boolean') throw new Error('Bài viết lưu không hợp lệ.');
+  if (p?.version !== 1 || typeof p.demo !== 'boolean' || !Array.isArray(p.essays) || !Number.isInteger(p.pieces) || p.pieces < 0 || p.pieces > 63 || !Number.isInteger(p.streak) || p.streak < 0 || !Number.isInteger(p.freezes) || p.freezes < 0 || p.freezes > 2 || !Number.isInteger(p.stars) || p.stars < 0 || p.stars > 3 || typeof p.sound !== 'boolean' || ![p.lastRewardDay, p.evaluatedDay, p.rainyUntil].every(d => d === null || (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)))) throw new Error('Invalid save data.');
+  for (const e of p.essays) if (!e || typeof e.text !== 'string' || typeof e.title !== 'string' || typeof e.id !== 'string' || ![1, 2].includes(e.task) || !Number.isFinite(Date.parse(e.date)) || !Number.isFinite(e.words) || typeof e.rewarded !== 'boolean') throw new Error('Invalid saved piece.');
   return p;
 }
-export function displayDate(value: string): string { return new Intl.DateTimeFormat('vi-VN', { timeZone: TIMEZONE, day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value)); }
+export function displayDate(value: string): string { return new Intl.DateTimeFormat('en-GB', { timeZone: TIMEZONE, day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value)); }

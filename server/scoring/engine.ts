@@ -16,21 +16,21 @@ type Issue = { criterion: CriterionKey; message: string; hard: boolean; diagnost
 export function validateAssessment(value: unknown, input: ScoringInput): Issue[] {
   const keys = criterionKeys(input.task_type);
   const shape = schemaErrors(examinerSchema(input.task_type), value);
-  if (shape.length) return keys.map(criterion => ({ criterion, message: 'Kết quả chấm chưa đủ bốn tiêu chí hoặc có thông tin không hợp lệ. Hãy kiểm tra lại đề và bài gốc rồi thử chấm lại.', hard: true, diagnostics: shape }));
+  if (shape.length) return keys.map(criterion => ({ criterion, message: 'The scoring result is missing some criteria or contains invalid information. Please double-check the prompt and your original essay, then try scoring again.', hard: true, diagnostics: shape }));
   const result = value as ExaminerOutput;
   const issues: Issue[] = [];
   for (const criterion of keys) {
     const item = result.criteria[criterion]!;
-    if (item.evidence_quotes.some(q => !q.trim() || !input.essay.includes(q))) issues.push({ criterion, message: 'Trích dẫn không khớp nguyên văn bài gốc.', hard: true });
-    if (item.band !== null && item.band > 0 && !item.evidence_quotes.length) issues.push({ criterion, message: 'Thiếu trích dẫn làm bằng chứng cho band.', hard: true });
-    if (item.band === null && result.status === 'scored') issues.push({ criterion, message: 'Kết quả scored có tiêu chí chưa chấm được.', hard: true });
+    if (item.evidence_quotes.some(q => !q.trim() || !input.essay.includes(q))) issues.push({ criterion, message: 'The quote does not match the original text verbatim.', hard: true });
+    if (item.band !== null && item.band > 0 && !item.evidence_quotes.length) issues.push({ criterion, message: 'Missing a quote as evidence for the band.', hard: true });
+    if (item.band === null && result.status === 'scored') issues.push({ criterion, message: 'Some criteria in the scored result could not be evaluated.', hard: true });
     // A suspicion triggers an audit; it never changes a band automatically.
     if (item.band !== null && item.band >= 7 && /(?:does not|fails? to|missing|omits?|unaddressed|không|chưa|thiếu|bỏ sót).{0,65}(?:opinion|position|overview|required|quan điểm|lập trường|tổng quan|yêu cầu)/iu.test(item.reason)) {
-      issues.push({ criterion, message: 'Band cao nhưng giải thích có dấu hiệu bỏ sót yêu cầu trọng yếu.', hard: false });
+      issues.push({ criterion, message: 'High band score, but the explanation seems to miss key requirements.', hard: false });
     }
   }
-  if (result.status === 'review_required') issues.push({ criterion: keys[0], message: 'Examiner yêu cầu kiểm tra lại kết quả.', hard: false });
-  if (result.quality_flags.some(flag => /contradict|inconsisten|mâu thuẫn|bất nhất/iu.test(flag))) issues.push({ criterion: keys[0], message: `Examiner ghi nhận bất nhất: ${result.quality_flags.join('; ')}`, hard: false });
+  if (result.status === 'review_required') issues.push({ criterion: keys[0], message: 'The Examiner requests a recheck of the result.', hard: false });
+  if (result.quality_flags.some(flag => /contradict|inconsisten|mâu thuẫn|bất nhất/iu.test(flag))) issues.push({ criterion: keys[0], message: `The Examiner noted inconsistencies: ${result.quality_flags.join('; ')}`, hard: false });
   return issues;
 }
 export async function scoreWriting(raw: unknown, options: EngineOptions): Promise<ScoringResult> {
@@ -64,7 +64,7 @@ export async function scoreWriting(raw: unknown, options: EngineOptions): Promis
   };
   const candidate = { task_type: input.task_type, category_hint: input.question_category, question: input.question, original_essay: input.essay, word_count: countWords(input.essay), image_attached: !!input.task_image };
   const analysisRaw = await call('analyze', analyzerModel, ANALYZER_PROMPT, { task_type: input.task_type, category_hint: input.question_category, question: input.question, image_attached: !!input.task_image }, analysisSchema(input.task_type));
-  if (schemaErrors(analysisSchema(input.task_type), analysisRaw).length) throw new ProviderError('invalid_response', 'Phân tích đề chưa đúng định dạng. Hãy thử lại.');
+  if (schemaErrors(analysisSchema(input.task_type), analysisRaw).length) throw new ProviderError('invalid_response', 'The prompt analysis format is incorrect. Please try again.');
   const analysis = analysisRaw as TaskAnalysis;
   const pinnedRubric = input.task_type.endsWith('_1') ? rubric.tasks.task_1 : rubric.tasks.task_2;
   const examinerData = { ...candidate, analysis, official_rubric: pinnedRubric, rubric_version: rubric.version, rubric_source: rubric.source_url, checklist: CHECKLISTS[analysis.question_category ?? 'letter'] };
@@ -99,7 +99,7 @@ export async function scoreWriting(raw: unknown, options: EngineOptions): Promis
       }
     } catch (error) {
       if (options.signal?.aborted) throw error;
-      unresolved = ['Chưa xác minh được các bất nhất trong kết quả chấm.', ...issues.map(i => i.message)];
+      unresolved = ['Unable to verify the inconsistencies in the scoring result.', ...issues.map(i => i.message)];
     }
   }
   const validShape = !schemaErrors(examinerSchema(input.task_type), draft).length;
@@ -110,11 +110,11 @@ export async function scoreWriting(raw: unknown, options: EngineOptions): Promis
   let criteria = assessment?.criteria ?? null;
   if (!validShape || issues.some(i => i.hard)) criteria = null;
   if (unresolved.length || !criteria) status = 'review_required';
-  if (analysis.classification_confidence === 'low') flags.push('Dạng đề chưa được xác định chắc chắn; hãy đối chiếu yêu cầu đề gốc.');
+  if (analysis.classification_confidence === 'low') flags.push('Task type could not be definitively determined; please cross-check with the original prompt requirements.');
   if (input.task_type === 'academic_task_1' && !input.task_image) {
-    const message = 'Thiếu ảnh đề Academic Task 1: chưa thể xác minh số liệu, đặc điểm và Task Achievement.';
+    const message = 'Missing Academic Task 1 prompt image: unable to verify data, features, and Task Achievement.';
     flags.push(message);
-    if (criteria?.task_achievement) criteria.task_achievement = { band: null, reason: message, evidence_quotes: [], next_band_gap: 'Bổ sung ảnh biểu đồ, bảng, bản đồ hoặc quy trình để đánh giá đầy đủ.' };
+    if (criteria?.task_achievement) criteria.task_achievement = { band: null, reason: message, evidence_quotes: [], next_band_gap: 'Please add the chart, table, map, or process image for a full evaluation.' };
     if (status === 'scored') status = 'partial';
     if (!analysis.potential_missing_context.includes(message)) analysis.potential_missing_context.push(message);
   }

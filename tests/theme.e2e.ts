@@ -11,29 +11,29 @@ test.use({ colorScheme: 'light' });
 
 test('quick toggle and settings share a preference that survives reload and route changes', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Chuyển sang chế độ tối' }).click();
+  await page.getByRole('button', { name: 'Switch to dark mode' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.goto('/#settings');
-  await expect(page.getByRole('radio', { name: 'Tối', exact: true })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('radio', { name: 'Sáng', exact: true }).check();
+  await page.getByRole('radio', { name: 'Light', exact: true }).check();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await expect(page.getByRole('button', { name: 'Chuyển sang chế độ tối' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Switch to dark mode' })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('writing-award:theme:v1'))).toBe('light');
 });
 
 test('system mode tracks live device changes while explicit preferences stay fixed', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto('/#settings');
-  await expect(page.getByRole('radio', { name: 'Theo hệ thống' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'System' })).toBeChecked();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await page.getByRole('radio', { name: 'Tối', exact: true }).check();
+  await page.getByRole('radio', { name: 'Dark', exact: true }).check();
   await page.emulateMedia({ colorScheme: 'dark' }); await page.emulateMedia({ colorScheme: 'light' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('radio', { name: 'Theo hệ thống' }).check();
+  await page.getByRole('radio', { name: 'System' }).check();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
@@ -51,16 +51,16 @@ test('saved theme applies before the React entry loads', async ({ page }) => {
 test('theme still switches if local storage is blocked', async ({ page }) => {
   await page.goto('/#settings');
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('Blocked', 'SecurityError'); }; });
-  await page.getByRole('radio', { name: 'Tối', exact: true }).check();
+  await page.getByRole('radio', { name: 'Dark', exact: true }).check();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.locator('.appearance-settings')).toContainText('vẫn áp dụng trong phiên này');
+  await expect(page.locator('.appearance-settings')).toContainText('apply it for this session');
 });
 
 test('appearance syncs across tabs without changing saved writing', async ({ page, context }) => {
   await page.goto('/');
   const before = await page.evaluate(() => localStorage.getItem('writing-award:v1'));
   const second = await context.newPage(); await second.goto('/#settings');
-  await second.getByRole('radio', { name: 'Tối', exact: true }).check();
+  await second.getByRole('radio', { name: 'Dark', exact: true }).check();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   expect(await page.evaluate(() => localStorage.getItem('writing-award:v1'))).toBe(before);
   await second.close();
@@ -87,33 +87,33 @@ test('both themes pass accessibility and reflow checks on all routes', async ({ 
 test('theme changes keep the same 3D canvas and preserve an unsaved essay', async ({ page }) => {
   await page.goto('/'); await expect(page.locator('canvas').first()).toBeVisible();
   const canvas = await page.locator('canvas').first().elementHandle();
-  await page.getByRole('textbox', { name: /Bài viết IELTS/ }).fill('My unfinished essay stays here.');
-  await page.getByRole('button', { name: 'Xoay mô hình sang phải' }).click();
-  await page.getByRole('button', { name: 'Chuyển sang chế độ tối' }).click();
+  await page.getByRole('textbox', { name: /IELTS Writing/ }).fill('My unfinished essay stays here.');
+  await page.getByRole('button', { name: 'Rotate model right' }).click();
+  await page.getByRole('button', { name: 'Switch to dark mode' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   expect(await canvas!.evaluate(node => node.isConnected && node === document.querySelector('canvas'))).toBe(true);
-  await expect(page.getByRole('textbox', { name: /Bài viết IELTS/ })).toHaveValue('My unfinished essay stays here.');
+  await expect(page.getByRole('textbox', { name: /IELTS Writing/ })).toHaveValue('My unfinished essay stays here.');
 });
 
 test('dark appearance keeps validation, reward and destructive confirmation readable', async ({ page }, testInfo) => {
   await page.emulateMedia({ colorScheme: 'dark' }); await page.goto('/');
-  await page.getByRole('button', { name: 'Lưu bài & nhận mảnh' }).click();
+  await page.getByRole('button', { name: 'Save & claim piece' }).click();
   await expect(page.locator('.form-error')).toBeVisible();
   await settleVisualState(page);
   let result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(result.violations).toEqual([]);
-  await page.getByRole('textbox', { name: /Bài viết IELTS/ }).fill('word '.repeat(250));
-  await page.getByRole('button', { name: 'Lưu bài & nhận mảnh' }).click();
+  await page.getByRole('textbox', { name: /IELTS Writing/ }).fill('word '.repeat(250));
+  await page.getByRole('button', { name: 'Save & claim piece' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await settleVisualState(page);
   result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(result.violations).toEqual([]);
   await page.screenshot({ path: `.impeccable/review/theme-dark-reward-${testInfo.project.name}.png` });
   await page.keyboard.press('Escape'); await page.goto('/#settings');
-  await page.getByRole('button', { name: 'Bắt đầu mới', exact: true }).click();
+  await page.getByRole('button', { name: 'Start fresh', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await settleVisualState(page);
   result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(result.violations).toEqual([]);
-  await page.getByRole('button', { name: 'Giữ hành trình này' }).click();
+  await page.getByRole('button', { name: 'Keep this journey' }).click();
 });

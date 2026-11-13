@@ -19,7 +19,7 @@ export function streamScoring(request: Request, env: ScoringEnv, handler = handl
           const response = await handler(upstream, env);
           send({ type: 'result', status: response.status, data: await response.json() });
         } catch {
-          send({ type: 'result', status: 500, data: { error: 'Chưa hoàn tất lượt chấm. Bài viết vẫn được giữ; hãy thử lại.', code: 'stream_error' } });
+          send({ type: 'result', status: 500, data: { error: 'Scoring session not completed. Your essay is safe; please try again.', code: 'stream_error' } });
         } finally {
           clearInterval(heartbeat);
           if (!closed) { closed = true; controller.close(); }

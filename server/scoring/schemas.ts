@@ -40,25 +40,25 @@ export function schemaErrors(schema: object, value: unknown): string[] {
 export class InputError extends Error {}
 export function parseInput(value: unknown): ScoringInput {
   const issues = schemaErrors(inputSchema, value);
-  if (issues.length) throw new InputError(`Dữ liệu chấm bài không hợp lệ: ${issues.join('; ')}`);
+  if (issues.length) throw new InputError(`Invalid scoring data: ${issues.join('; ')}`);
   const input = value as ScoringInput;
-  if (!input.question.trim() || !input.essay.trim()) throw new InputError('Hãy nhập đầy đủ đề bài và bài viết.');
-  if (!countHasWords(input.essay)) throw new InputError('Bài viết cần có nội dung bằng chữ để đánh giá.');
+  if (!input.question.trim() || !input.essay.trim()) throw new InputError('Please enter both the prompt and your essay.');
+  if (!countHasWords(input.essay)) throw new InputError('Your essay needs text content to be evaluated.');
   if (input.task_type === 'general_task_1') {
-    if (input.question_category !== null && input.question_category !== 'auto') throw new InputError('General Training Task 1 là dạng thư; không dùng nhãn biểu đồ.');
+    if (input.question_category !== null && input.question_category !== 'auto') throw new InputError('General Training Task 1 is a letter; chart labels are not used.');
     input.question_category = null;
   } else if (input.question_category !== 'auto' && !allowedCategories(input.task_type).includes(input.question_category!)) {
-    throw new InputError('Dạng đề không phù hợp với loại task đã chọn.');
+    throw new InputError('The prompt type does not match the selected task type.');
   }
   if (input.task_image) {
     const { data, mime_type } = input.task_image;
-    if (input.task_type !== 'academic_task_1') throw new InputError('Ảnh đề chỉ dùng cho Academic Task 1.');
-    if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data)) throw new InputError('Ảnh đề không đúng định dạng base64.');
+    if (input.task_type !== 'academic_task_1') throw new InputError('Prompt images are only for Academic Task 1.');
+    if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data)) throw new InputError('Prompt image is not in valid base64 format.');
     const bytes = Buffer.from(data, 'base64');
     const png = bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
     const jpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
     const webp = bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP';
-    if (!bytes.length || bytes.length > MAX_IMAGE_BYTES || !({ 'image/png': png, 'image/jpeg': jpeg, 'image/webp': webp }[mime_type])) throw new InputError('Ảnh đề phải là PNG, JPEG hoặc WebP hợp lệ, tối đa 2 MB.');
+    if (!bytes.length || bytes.length > MAX_IMAGE_BYTES || !({ 'image/png': png, 'image/jpeg': jpeg, 'image/webp': webp }[mime_type])) throw new InputError('Prompt image must be a valid PNG, JPEG, or WebP, up to 2 MB.');
   }
   return input;
 }

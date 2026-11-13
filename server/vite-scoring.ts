@@ -9,7 +9,7 @@ function createScoringMiddleware(env: ScoringEnv): Connect.NextHandleFunction {
       let size = 0; const chunks: Buffer[] = [];
       for await (const chunk of incoming) {
         size += chunk.length;
-        if (size > MAX_BODY_BYTES) { outgoing.writeHead(413, { 'Content-Type': 'application/json' }); outgoing.end(JSON.stringify({ error: 'Dữ liệu vượt quá 3 MB.' })); return; }
+        if (size > MAX_BODY_BYTES) { outgoing.writeHead(413, { 'Content-Type': 'application/json' }); outgoing.end(JSON.stringify({ error: 'Data exceeds 3 MB.' })); return; }
         chunks.push(chunk);
       }
       const headers = new Headers();
@@ -20,7 +20,7 @@ function createScoringMiddleware(env: ScoringEnv): Connect.NextHandleFunction {
       const response = await handleScoring(request, activeEnv);
       outgoing.writeHead(response.status, Object.fromEntries(response.headers)); outgoing.end(await response.text());
     } catch {
-      const response = responseJson({ error: 'Chưa xử lý được yêu cầu chấm bài.' }, 500);
+      const response = responseJson({ error: 'Could not process the scoring request.' }, 500);
       outgoing.writeHead(response.status, Object.fromEntries(response.headers)); outgoing.end(await response.text());
     }
   };

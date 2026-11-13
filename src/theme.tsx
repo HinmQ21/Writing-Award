@@ -60,7 +60,7 @@ export function useTheme() {
 export function ThemeToggle() {
   const { resolvedTheme, setPreference } = useTheme();
   const dark = resolvedTheme === 'dark';
-  const action = dark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối';
+  const action = dark ? 'Switch to light mode' : 'Switch to dark mode';
   return <button className="icon-button theme-toggle" aria-label={action} title={action} onClick={() => setPreference(dark ? 'light' : 'dark')}>
     {dark ? <Sun aria-hidden="true" size={20} /> : <Moon aria-hidden="true" size={20} />}
   </button>;
@@ -69,21 +69,21 @@ export function ThemeToggle() {
 export function AppearanceSettings() {
   const { preference, resolvedTheme, setPreference, storageWarning } = useTheme();
   return <div className="settings-group appearance-settings">
-    <h2>Giao diện</h2>
+    <h2>Appearance</h2>
     <fieldset className="appearance-fieldset" aria-describedby="appearance-note">
-      <legend>Chọn chế độ hiển thị</legend>
+      <legend>Choose display mode</legend>
       <div className="appearance-options">{([
-        { value: 'light', label: 'Sáng', icon: Sun },
-        { value: 'dark', label: 'Tối', icon: Moon },
-        { value: 'system', label: 'Theo hệ thống', icon: Monitor },
+        { value: 'light', label: 'Light', icon: Sun },
+        { value: 'dark', label: 'Dark', icon: Moon },
+        { value: 'system', label: 'System', icon: Monitor },
       ] as const).map(({ value, label, icon: Icon }) => <label key={value} className={preference === value ? 'selected' : ''}>
         <input type="radio" name="appearance" value={value} checked={preference === value} onChange={() => setPreference(value)} />
         <Icon aria-hidden="true" size={20} /><span>{label}</span>{preference === value && <Check aria-hidden="true" size={15} className="appearance-check" />}
       </label>)}</div>
     </fieldset>
     <p id="appearance-note" className="appearance-note">{preference === 'system'
-      ? `Tự đổi theo thiết bị của bạn. Hiện đang dùng giao diện ${resolvedTheme === 'dark' ? 'tối' : 'sáng'}.`
-      : 'Lựa chọn này được lưu riêng trên trình duyệt, cùng bạn mỗi lần quay lại.'}</p>
-    {storageWarning && <p className="form-error" role="status">Chưa lưu được lựa chọn. Giao diện vẫn áp dụng trong phiên này.</p>}
+      ? `Automatically matches your device. Currently using ${resolvedTheme === 'dark' ? 'dark' : 'light'}.`
+      : 'This preference is saved in your browser, so it\'ll be right here whenever you return.'}</p>
+    {storageWarning && <p className="form-error" role="status">Couldn't save your preference, but we'll apply it for this session.</p>}
   </div>;
 }

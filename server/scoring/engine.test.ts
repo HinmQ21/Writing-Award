@@ -7,8 +7,8 @@ import { parseInput } from './schemas';
 
 const essay = 'Some people prefer daily practice. I agree because habits build confidence. However, goals also provide direction.';
 const input: ScoringInput = { task_type: 'academic_task_2', question_category: 'auto', question: 'Some people believe daily habits matter more than ambitious goals. To what extent do you agree or disagree?', essay, task_image: null, rubric_version: 'ielts_official_v1' };
-const analysis: TaskAnalysis = { question_category: 'opinion', classification_confidence: 'high', classification_notes: 'Đề hỏi mức độ đồng ý.', task_requirements: ['Nêu quan điểm và lý giải.'], potential_missing_context: [] };
-const criterion = (band = 6) => ({ band, reason: 'Lập luận có ý chính, phát triển còn hạn chế.', evidence_quotes: ['habits build confidence'], next_band_gap: 'Phát triển ý và dẫn chứng cụ thể hơn.' });
+const analysis: TaskAnalysis = { question_category: 'opinion', classification_confidence: 'high', classification_notes: 'The prompt asks how far you agree.', task_requirements: ['State and explain your opinion.'], potential_missing_context: [] };
+const criterion = (band = 6) => ({ band, reason: 'The argument has main ideas but limited development.', evidence_quotes: ['habits build confidence'], next_band_gap: 'Develop ideas and give more specific examples.' });
 const assessment = (): ExaminerOutput => ({ status: 'scored', criteria: { task_response: criterion(7), coherence_cohesion: criterion(6), lexical_resource: criterion(7), grammatical_range_accuracy: criterion(6) }, quality_flags: [] });
 const generator = (...answers: unknown[]) => vi.fn(async () => { const answer = answers.shift(); if (answer instanceof Error) throw answer; return structuredClone(answer); });
 
@@ -36,7 +36,7 @@ describe('deterministic IELTS scoring', () => {
     expect(() => parseInput({ ...input, question_category: 'bar_chart' })).toThrow();
   });
   it('does not silently replace invalid analyzer classification', async () => {
-    await expect(scoreWriting(input, { generate: generator({ ...analysis, question_category: 'bar_chart' }) })).rejects.toThrow('Phân tích đề');
+    await expect(scoreWriting(input, { generate: generator({ ...analysis, question_category: 'bar_chart' }) })).rejects.toThrow('prompt analysis');
   });
   it('handles General Training letters with null category and Task Achievement', async () => {
     const letter = assessment(); letter.criteria.task_achievement = letter.criteria.task_response; delete letter.criteria.task_response;
@@ -75,12 +75,12 @@ describe('deterministic IELTS scoring', () => {
     const result = await scoreWriting(input, { generate }); expect(result.criteria?.task_response?.band).toBe(5); expect(result.criteria?.lexical_resource?.band).toBe(7);
   });
   it('returns review_required if the final explanation still contradicts its score', async () => {
-    const bad = assessment(); bad.criteria.task_response!.reason = 'Bài viết thiếu quan điểm được yêu cầu.';
+    const bad = assessment(); bad.criteria.task_response!.reason = 'The essay is missing a required opinion.';
     const result = await scoreWriting(input, { generate: generator(analysis, bad, { affects_result: true, flagged_criteria: ['task_response'], issues: ['Contradiction'] }, { status: 'scored', criteria: { task_response: bad.criteria.task_response }, quality_flags: [] }) });
     expect(result.status).toBe('review_required'); expect(result.estimated_overall_band).toBeNull();
   });
   it('keeps valid partial results without an unnecessary audit', async () => {
-    const partial = assessment(); partial.status = 'partial'; partial.quality_flags = ['Thiếu ngữ cảnh để đánh giá đầy đủ.']; partial.criteria.task_response!.band = null;
+    const partial = assessment(); partial.status = 'partial'; partial.quality_flags = ['More context is needed for a complete assessment.']; partial.criteria.task_response!.band = null;
     const generate = generator(analysis, partial); const result = await scoreWriting(input, { generate });
     expect(result.status).toBe('partial'); expect(result.estimated_overall_band).toBeNull(); expect(generate).toHaveBeenCalledTimes(2);
   });
@@ -150,7 +150,7 @@ describe('scoring API and provider boundary', () => {
     await expect(createGemini('key', vi.fn().mockResolvedValue(Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'no json' }] } }] })))(call)).rejects.toMatchObject({ code: 'invalid_response' });
   });
   it('validates image bytes, MIME, task and payload rather than trusting the file extension', () => {
-    expect(() => parseInput({ ...input, task_type: 'academic_task_1', task_image: { mime_type: 'image/png', data: Buffer.from('fake png').toString('base64') } })).toThrow('Ảnh đề');
+    expect(() => parseInput({ ...input, task_type: 'academic_task_1', task_image: { mime_type: 'image/png', data: Buffer.from('fake png').toString('base64') } })).toThrow('Prompt image');
     expect(() => parseInput({ ...input, task_type: 'academic_task_1', task_image: { mime_type: 'image/png', data: '!!!' } })).toThrow('base64');
     expect(() => parseInput({ ...input, task_image: { mime_type: 'image/png', data: 'AAAA' } })).toThrow('Academic Task 1');
   });

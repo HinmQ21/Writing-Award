@@ -774,8 +774,8 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
 
   useEffect(() => { applyAppearance.current(resolvedTheme === 'dark'); }, [resolvedTheme]);
 
-  return <div className={`scene-render ${miniature ? 'miniature' : ''}`} ref={host} role={failed ? undefined : "img"} aria-label={failed ? undefined : rewardPiece ? `Mảnh xây dựng mới, số ${pieces}` : `${['Nhà Capybara', 'Cây Thần Kỳ', 'Lego Capybara'][world]}: đã xây ${pieces} trong 21 mảnh. Có thể dùng các nút bên dưới để xoay và phóng to.`}>
-    {failed && <div className="scene-fallback"><img src="/capy-scholar.png" width="88" height="88" alt="Capy" /><strong>Công trình vẫn ở đây, cùng bạn.</strong><p>Thiết bị chưa hiển thị được 3D. Bạn vẫn có thể viết bài và nhận mảnh như thường.</p><button className="button secondary" onClick={() => location.reload()}><RotateCcw size={16} /> Tải lại mô hình</button></div>}
+  return <div className={`scene-render ${miniature ? 'miniature' : ''}`} ref={host} role={failed ? undefined : "img"} aria-label={failed ? undefined : rewardPiece ? `New building piece, number ${pieces}` : `${['Capy Cottage', 'Magic Tree', 'Lego Capybara'][world]}: built ${pieces} out of 21 pieces. You can use the buttons below to rotate and zoom.`}>
+    {failed && <div className="scene-fallback"><img src="/capy-scholar.png" width="88" height="88" alt="Capy" /><strong>Your creation is still right here with you.</strong><p>Your device doesn't support 3D yet. You can still write and earn pieces as usual.</p><button className="button secondary" onClick={() => location.reload()}><RotateCcw size={16} /> Reload model</button></div>}
   </div>;
 });
 export default Scene;

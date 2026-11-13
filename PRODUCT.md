@@ -9,7 +9,7 @@ web
 React + TypeScript + Vite, explicitly selected by the user. Three.js renders an interactive procedural toy diorama; no claim of Blender/GLB artwork.
 
 ## Users
-IELTS learners who want a gentle daily writing ritual. The interface is Vietnamese; essays may be in English.
+IELTS learners who want a gentle daily writing ritual. The interface is English (requested 2026-11-13); original essays and saved drafts retain their own language and content.
 
 ## Product Purpose
 One essay. One little piece of happiness. Daily practice builds a permanent, visible world instead of a stressful score dashboard.
@@ -34,7 +34,7 @@ Paste or upload text, choose Writing Task 1 or 2, submit, receive a building pie
 - Timezone: Asia/Ho_Chi_Minh, visibly disclosed in settings. Production authentication, database, anti-spam and server idempotency remain outside this demo.
 
 ## Brand Commitments
-Use the source document's ivory, peach, lavender, mint and warm brown palette; rounded legible typography; a pastel toy/diorama cottage; friendly, unpressured Vietnamese copy. The source document wins over either skill's suggestions.
+Use the source document's ivory, peach, lavender, mint and warm brown palette; rounded legible typography; a pastel toy/diorama cottage; friendly, unpressured English copy. The user-requested English interface supersedes the original document's Vietnamese copy. Other visual commitments remain in force.
 
 ## Evidence on Hand
 The documentation and concept image in docs are the supplied authority. No existing application, backend, customer claims, or production 3D assets exist.

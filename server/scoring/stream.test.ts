@@ -23,12 +23,12 @@ it('client reads chunked UTF-8 results and ignores heartbeat events', async () =
   expect(await submitScoring({} as never, new AbortController().signal)).toEqual(result);
 });
 it('client reports the API error within a streaming response', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(`${JSON.stringify({ type: 'result', status: 429, data: { error: 'Hết hạn mức.' } })}\n`, { headers: { 'content-type': 'application/x-ndjson' } })));
-  await expect(submitScoring({} as never, new AbortController().signal)).rejects.toThrow('Hết hạn mức.');
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(`${JSON.stringify({ type: 'result', status: 429, data: { error: 'Quota exhausted.' } })}\n`, { headers: { 'content-type': 'application/x-ndjson' } })));
+  await expect(submitScoring({} as never, new AbortController().signal)).rejects.toThrow('Quota exhausted.');
 });
 it('client reports an interrupted stream or HTML gateway timeout without losing the reason', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{"type":"keepalive"}\n', { headers: { 'content-type': 'application/x-ndjson' } })));
-  await expect(submitScoring({} as never, new AbortController().signal)).rejects.toThrow('Kết nối bị ngắt');
+  await expect(submitScoring({} as never, new AbortController().signal)).rejects.toThrow('Connection lost');
   vi.stubGlobal('fetch', vi.fn(async () => new Response('<h1>Inactivity Timeout</h1>', { status: 504, headers: { 'content-type': 'text/html' } })));
   await expect(submitScoring({} as never, new AbortController().signal)).rejects.toThrow('HTTP 504');
 });
