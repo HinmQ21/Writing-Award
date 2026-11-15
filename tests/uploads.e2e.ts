@@ -23,6 +23,7 @@ test('imports real Word text with paragraphs/Unicode, preserves task and saves t
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `.impeccable/review/word-import-${info.project.name}.png`, fullPage: true });
   await editor.fill(`${expected}\n\nOne more sentence.`);
+  await page.getByLabel('Daily writing prompt', { exact: true }).fill('Describe the main features of the chart.');
   await page.getByRole('button', { name: 'Save & claim piece' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');

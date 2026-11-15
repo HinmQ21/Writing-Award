@@ -1,5 +1,7 @@
 # Dashboard and practice flows
 
+Prompt/version extension (2026-11-15): inherit the existing Operate composition and palette. Add the required prompt before the daily essay, with New/Saved sources, search, clear selected-question context and the next version label. Preserve independent per-prompt drafts on switches. Journal groups an original question with its numbered immutable versions, keeps older versions discoverable, and supports continuing, reading and scoring. Old entries without a question remain visible and can be linked through a focused dialog. The main diorama/reward mechanism, tokens and DESIGN.md stay unchanged. Success: no writing/progress lost, source prompt carried into scoring, one reward per day, legible responsive form/grouped journal, keyboard and screen-reader clarity, light/dark desktop/mobile evidence. Business/storage contract: docs/prompts-and-versions.md.
+
 Mode: Operate. Scope: /, /collection, /journal, /settings.
 
 ## Direction contract

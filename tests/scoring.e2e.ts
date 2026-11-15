@@ -135,20 +135,22 @@ test('journal picker searches, filters and brings an existing essay into scoring
   await page.getByRole('button', { name: 'Task 2', exact: true }).click();
   await page.screenshot({ path: `.impeccable/review/journal-picker-${info.project.name}.png`, fullPage: true });
   const first = page.locator('.journal-picker-list button').first(); await expect(first).toContainText('Task 2'); await first.click();
-  await expect(page.locator('#scoring-essay')).not.toHaveValue(''); await expect(page.locator('#scoring-question')).toHaveValue(''); await expect(page.locator('#scoring-question')).toBeFocused();
+  await expect(page.locator('#scoring-essay')).not.toHaveValue(''); await expect(page.locator('#scoring-question')).toHaveValue(/small daily habits/); await expect(page.locator('#scoring-question')).toBeFocused();
   await expect(page.getByRole('combobox', { name: /Task type/ })).toContainText('Academic · Task 2');
   await page.goto('/#journal'); await page.locator('.journal-score-action').first().click();
   await expect(page.locator('#scoring-essay')).not.toHaveValue('');
 });
 test('home optionally saves an essay and continues to full scoring form without making a paid call', async ({ page }, info) => {
   await page.goto('/'); let posts = 0; page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/api/score')) posts++; });
+  await page.getByLabel('Daily writing prompt', { exact: true }).fill('Discuss daily writing habits.');
   await page.getByRole('textbox', { name: /IELTS Writing Task/ }).fill('practice '.repeat(260));
   await page.getByRole('checkbox', { name: 'Get IELTS feedback for this piece' }).check();
   await page.screenshot({ path: `.impeccable/review/home-score-choice-${info.project.name}.png`, fullPage: true });
   await page.getByRole('button', { name: 'Save & continue grading' }).click();
   await page.getByRole('button', { name: 'Continue grading', exact: true }).click();
   await expect(page.locator('#scoring-essay')).toHaveValue('practice '.repeat(260).trim()); expect(posts).toBe(0);
-  await page.getByRole('button', { name: 'Score IELTS essay', exact: true }).click(); await expect(page.getByRole('alert')).toContainText('add both the prompt and your essay'); expect(posts).toBe(0);
+  await expect(page.locator('#scoring-question')).toHaveValue('Discuss daily writing habits.');
+  expect(posts).toBe(0);
 });
 test('custom choices support keyboard, selected states, reflow and readable themed popups', async ({ page }, info) => {
   const trigger = page.getByRole('combobox', { name: /Task type/ }); await trigger.focus(); await page.keyboard.press('ArrowDown');

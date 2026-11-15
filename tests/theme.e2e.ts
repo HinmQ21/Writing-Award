@@ -67,6 +67,7 @@ test('appearance syncs across tabs without changing saved writing', async ({ pag
 });
 
 test('both themes pass accessibility and reflow checks on all routes', async ({ page }) => {
+  test.setTimeout(90_000); // Eight route/theme audits plus 3D software rendering and viewport changes.
   const viewport = page.viewportSize()!;
   for (const theme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: theme });
@@ -102,6 +103,7 @@ test('dark appearance keeps validation, reward and destructive confirmation read
   await settleVisualState(page);
   let result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(result.violations).toEqual([]);
+  await page.getByLabel('Daily writing prompt', { exact: true }).fill('Discuss daily writing habits.');
   await page.getByRole('textbox', { name: /IELTS Writing/ }).fill('word '.repeat(250));
   await page.getByRole('button', { name: 'Save & claim piece' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();

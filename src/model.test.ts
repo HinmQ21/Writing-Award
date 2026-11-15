@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { activeWorld, addDays, createProgress, dayKey, parseProgress, reconcileProgress, submitEssay, wordCount, worldPieces } from './model';
+import { activeWorld, addDays, createProgress, dayKey, parseProgress, reconcileProgress, submitEssay as saveEssay, wordCount, worldPieces } from './model';
 
 const essay = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ');
+const submitEssay = (progress: import('./model').Progress, text: string, task: import('./model').Task, now: Date) => saveEssay(progress, text, task, now, { promptId: null, question: 'Discuss daily writing habits.' });
 const now = new Date('2026-11-09T04:00:00Z');
 describe('daily IELTS writing progression', () => {
   it('uses account midnight rather than UTC midnight', () => {

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 const writing = Array.from({ length: 260 }, (_, i) => `word${i}`).join(' ');
-test.beforeEach(async ({ page }) => { await page.goto('/'); await expect(page.getByRole('heading', { level: 1 })).toBeVisible(); });
+test.beforeEach(async ({ page }) => { await page.goto('/'); await expect(page.getByRole('heading', { level: 1 })).toBeVisible(); await page.getByLabel('Daily writing prompt', { exact: true }).fill('Discuss daily writing habits.'); });
 
 test('validates, preserves drafts, submits and awards only once', async ({ page }) => {
   const essay = page.getByRole('textbox', { name: /IELTS Writing/ });
@@ -98,6 +98,7 @@ test('preserves corrupted local data and offers a recoverable error', async ({ p
   await page.evaluate(() => localStorage.setItem('writing-award:v1', '{broken-data'));
   await page.reload();
   await expect(page.locator('.error-notice')).toContainText('Previous data kept safe');
+  await page.getByLabel('Daily writing prompt', { exact: true }).fill('Discuss daily writing habits.');
   await page.getByRole('textbox', { name: /IELTS Writing/ }).fill(writing);
   await page.getByRole('button', { name: 'Save & claim piece' }).click();
   await expect(page.locator('.form-error')).toContainText('download a backup');
