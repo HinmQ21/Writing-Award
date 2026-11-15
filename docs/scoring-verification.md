@@ -1,5 +1,15 @@
 # Verification — IELTS Writing scoring
 
+## Correction feedback extension (2026-11-15)
+
+Business research preceded implementation; sources, interpretations, task-specific rules and acceptance boundaries are recorded in [ielts-corrections-research.md](ielts-corrections-research.md). The user confirmed full language plus argument/structure feedback. The original scoring rubric and score calculation are unchanged.
+
+The separate correction API drafts feedback, validates exact source references, then critically checks each finding before publication. A successful live Flash-Lite review of the career essay returned four focused findings: vocabulary errors for financial dependence and studying university, plus improvement suggestions for a causal explanation and an ambiguous relative-clause referent. The review did not invent a missing opinion or publish a forced agreement correction for the ambiguous clause. These are AI smoke observations, not human-calibrated diagnoses. Subsequent attempts encountered intermittent upstream HTTP 503; the application preserves the assessment and offers retry.
+
+Validation: **90 unit tests passed**; **36 scoring/correction E2E tests passed** across desktop/mobile; the **12 correction tests passed again** after the mobile filter-label wrapping fix. TypeScript/Vite production build passed. Coverage includes explicit request/no automatic extra call, preserved original/score, snapshot identity, source highlighting, filters, JSON export, stop/late-response handling, retry, partial/empty states, verifier failure, taxonomy/anchor rejection, qualitative impact, all task types, Unicode/repeated text, 320–1440px reflow and axe accessibility in both themes.
+
+Fresh scoped Impeccable finish review returned **ship**, with no material fixes, after examining six current desktop/mobile light/dark captures plus the implementation and persisted direction. Main captures use representative fixtures; mobile reading captures use the successful live response with the final server's source-ID copy rule. Existing DESIGN.md and semantic tokens were preserved. The skill reports pre-existing sidecar drift and an available skill update; neither was changed as part of this feature.
+
 ## Exact evidence regression (2026-11-13)
 
 The supplied university-versus-work essay reproduced `review_required` with no score. The examiner shortened quotes with `...` and capitalized an in-sentence `the`; the audit then incorrectly changed the essay's `believed` to `believe`. Strict validation correctly rejected those quotations, including after reassessment.

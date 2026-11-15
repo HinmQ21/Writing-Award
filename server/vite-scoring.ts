@@ -2,8 +2,9 @@ import type { Connect, Plugin } from 'vite';
 import { handleScoring, responseJson } from './scoring/http';
 import type { ScoringEnv } from './scoring/http';
 import { MAX_BODY_BYTES } from './scoring/schemas';
+import { handleCorrections } from './scoring/corrections-http';
 
-function createScoringMiddleware(env: ScoringEnv): Connect.NextHandleFunction {
+function createScoringMiddleware(env: ScoringEnv, handler = handleScoring): Connect.NextHandleFunction {
   return async (incoming, outgoing) => {
     try {
       let size = 0; const chunks: Buffer[] = [];
@@ -17,7 +18,7 @@ function createScoringMiddleware(env: ScoringEnv): Connect.NextHandleFunction {
       const url = `http://${incoming.headers.host ?? 'localhost:5173'}/api/score`;
       const request = new Request(url, { method: incoming.method, headers, ...(incoming.method === 'POST' ? { body: Buffer.concat(chunks).toString('utf8') } : {}) });
       const activeEnv: ScoringEnv = { ...env, ...process.env };
-      const response = await handleScoring(request, activeEnv);
+      const response = await handler(request, activeEnv);
       outgoing.writeHead(response.status, Object.fromEntries(response.headers)); outgoing.end(await response.text());
     } catch {
       const response = responseJson({ error: 'Could not process the scoring request.' }, 500);
@@ -31,9 +32,11 @@ export function scoringApi(env: ScoringEnv): Plugin {
     name: 'writing-scoring-api',
     configureServer(server) {
       server.middlewares.use('/api/score', createScoringMiddleware(env));
+      server.middlewares.use('/api/corrections', createScoringMiddleware(env, handleCorrections));
     },
     configurePreviewServer(server) {
       server.middlewares.use('/api/score', createScoringMiddleware(env));
+      server.middlewares.use('/api/corrections', createScoringMiddleware(env, handleCorrections));
     },
   };
 }

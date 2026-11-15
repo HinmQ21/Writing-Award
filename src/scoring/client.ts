@@ -1,7 +1,8 @@
 import type { ScoringInput, ScoringResult, TaskImage } from './types';
+import type { CorrectionsResult } from './corrections';
 
-export async function submitScoring(input: ScoringInput, signal: AbortSignal): Promise<ScoringResult> {
-  const response = await fetch('/api/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal });
+async function requestWriting(input: ScoringInput, signal: AbortSignal, endpoint: string): Promise<unknown> {
+  const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal });
   let data: unknown;
   let status = response.status;
   try {
@@ -36,8 +37,16 @@ export async function submitScoring(input: ScoringInput, signal: AbortSignal): P
     const message = (data as { error?: unknown })?.error;
     throw new Error(typeof message === 'string' ? message : `Could not review piece (HTTP ${status}). Your draft is still saved; please try again.`);
   }
-  const result = data as ScoringResult;
+  return data;
+}
+export async function submitScoring(input: ScoringInput, signal: AbortSignal): Promise<ScoringResult> {
+  const result = await requestWriting(input, signal, '/api/score') as ScoringResult;
   if (!['scored', 'partial', 'needs_input', 'review_required'].includes(result.status) || !result.request_id || !Array.isArray(result.quality_flags)) throw new Error('API returned incomplete results. Please try again.');
+  return result;
+}
+export async function submitCorrections(input: ScoringInput, signal: AbortSignal): Promise<CorrectionsResult> {
+  const result = await requestWriting(input, signal, '/api/corrections') as CorrectionsResult;
+  if (!['complete', 'partial'].includes(result.status) || !result.request_id || !Array.isArray(result.items) || !Array.isArray(result.limitations)) throw new Error('The correction review was incomplete. Your band assessment is unchanged; please try again.');
   return result;
 }
 export async function readTaskImage(file: File): Promise<TaskImage> {

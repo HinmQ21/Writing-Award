@@ -3,6 +3,8 @@ import type { FormEvent, ReactNode } from 'react';
 import { ArrowRight, BookOpenCheck, Check, CheckCheck, ChevronDown, Download, FileText, ImagePlus, Info, MessageSquareQuote, NotebookPen, Pencil, ScanText, ShieldCheck, Upload, X } from 'lucide-react';
 import { readEssayFile, UPLOAD_ACCEPT } from '../uploads';
 import ChoiceSelect from './ChoiceSelect';
+import CorrectionsPanel from './CorrectionsPanel';
+import type { CorrectionsResult, ReviewPassage } from './corrections';
 import { displayDate, DRAFT_KEY } from '../model';
 import type { Essay } from '../model';
 import { allowedCategories, countWords, criterionKeys, TASK_TYPES } from './types';
@@ -31,15 +33,17 @@ function initialDraft(prefill?: Essay | null): ScoringInput {
   if (prefill) return { ...empty, essay: prefill.text, task_type: prefill.task === 1 ? 'academic_task_1' : 'academic_task_2' };
   return empty;
 }
-function exportResult(result: ScoringResult) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }));
+function exportResult(result: ScoringResult, corrections: CorrectionsResult | null) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(corrections ? { ...result, corrections } : result, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a'); link.href = url; link.download = `ielts-writing-${result.request_id}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function MarkedEssay({ text, quote }: { text: string; quote: string }) {
-  const index = quote ? text.indexOf(quote) : -1;
+function MarkedEssay({ text, quote, passage }: { text: string; quote: string; passage: ReviewPassage | null }) {
+  const anchored = passage && text.slice(passage.start, passage.end) === passage.text ? passage : null;
+  const index = anchored ? anchored.start : quote ? text.indexOf(quote) : -1;
+  const end = anchored ? anchored.end : index + quote.length;
   const mark = useRef<HTMLElement>(null);
-  useEffect(() => { if (quote) mark.current?.scrollIntoView({ block: 'nearest', behavior: 'instant' }); }, [quote]);
-  return <article className="scoring-original" lang="en">{index < 0 ? text : <>{text.slice(0, index)}<mark ref={mark}>{quote}</mark>{text.slice(index + quote.length)}</>}</article>;
+  useEffect(() => { if (quote || passage) mark.current?.scrollIntoView({ block: 'nearest', behavior: 'instant' }); }, [quote, passage]);
+  return <article className="scoring-original" lang="en">{index < 0 ? text : <>{text.slice(0, index)}<mark ref={mark}>{text.slice(index, end)}</mark>{text.slice(end)}</>}</article>;
 }
 
 export default function ScoringPage({ prefill, essays = [] }: { prefill?: Essay | null; essays?: Essay[] }) {
@@ -59,6 +63,9 @@ export default function ScoringPage({ prefill, essays = [] }: { prefill?: Essay 
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [selected, setSelected] = useState<CriterionKey | null>('task_response');
   const [quote, setQuote] = useState('');
+  const [passage, setPassage] = useState<ReviewPassage | null>(null);
+  const [corrections, setCorrections] = useState<CorrectionsResult | null>(null);
+  const [feedbackView, setFeedbackView] = useState<'assessment' | 'corrections'>('assessment');
   const [fileNotice, setFileNotice] = useState('');
   const [storageNotice, setStorageNotice] = useState('');
   const [imageName, setImageName] = useState('');
@@ -72,7 +79,7 @@ export default function ScoringPage({ prefill, essays = [] }: { prefill?: Essay 
   const resultsRef = useRef<HTMLHeadingElement>(null);
   const words = countWords(input.essay), minimum = input.task_type.endsWith('_1') ? 150 : 250;
   function beginEditing() {
-    setEditing(true); setQuote('');
+    setEditing(true); setQuote(''); setPassage(null);
     requestAnimationFrame(() => { const heading = document.getElementById('scoring-input-title'); heading?.focus({ preventScroll: true }); heading?.scrollIntoView({ block: 'start', behavior: 'instant' }); });
   }
   useEffect(() => {
@@ -122,7 +129,7 @@ export default function ScoringPage({ prefill, essays = [] }: { prefill?: Essay 
       const snapshot = structuredClone(input);
       const response = await submitScoring(snapshot, abort.signal);
       if (abort.signal.aborted) return;
-      setResult(response); setSubmitted(snapshot); setSelected(criterionKeys(snapshot.task_type)[0]); setQuote(''); setEditing(false);
+      setResult(response); setSubmitted(snapshot); setSelected(criterionKeys(snapshot.task_type)[0]); setQuote(''); setPassage(null); setCorrections(null); setFeedbackView('assessment'); setEditing(false);
       requestAnimationFrame(() => resultsRef.current?.focus({ preventScroll: true }));
     } catch (err) { if (!abort.signal.aborted) { setError(err instanceof Error ? err.message : 'Couldn\'t grade this essay. Please try again.'); requestAnimationFrame(() => errorRef.current?.focus()); } }
     finally { if (controller.current === abort) { busyRef.current = false; setBusy(false); } }
@@ -157,14 +164,16 @@ export default function ScoringPage({ prefill, essays = [] }: { prefill?: Essay 
           <input ref={fileRef} type="file" className="sr-only" tabIndex={-1} accept={UPLOAD_ACCEPT} aria-label="Upload essay to grade" disabled={busy || reading} onChange={e => void importEssay(e.target.files?.[0])} />
           <input ref={imageRef} type="file" className="sr-only" tabIndex={-1} accept="image/png,image/jpeg,image/webp" aria-label="Upload Academic Task 1 prompt image" disabled={busy || reading} onChange={e => void importImage(e.target.files?.[0])} />
           <div className="scoring-submit-area"><button className="button primary scoring-submit" type="submit" disabled={busy || reading || configured === false}>{busy ? <><span className="spinner" /> Grading essay...</> : reading ? 'Reading file...' : <><BookOpenCheck size={19} aria-hidden="true" /> Score IELTS essay <ArrowRight size={18} aria-hidden="true" /></>}</button>{busy && <button type="button" className="text-button" onClick={() => { controller.current?.abort(); setBusy(false); busyRef.current = false; setFileNotice('Stopped waiting for results. Your draft is still here.'); }}>Stop waiting</button>}<p className="scoring-privacy"><ShieldCheck size={14} aria-hidden="true" /><span>During grading, the prompt, essay, and image are sent to Gemini. Results are estimated bands, not official IELTS scores.</span></p>{storageNotice && <p className="scoring-help" role="status">{storageNotice}</p>}</div>
-        </form> : submitted && <div className="scoring-source"><div className="scoring-source-meta"><span>{TASK_LABELS[submitted.task_type]}</span><span>{countWords(submitted.essay)} words</span></div><details className="scoring-source-question"><summary>Original prompt <ChevronDown size={16} aria-hidden="true" /></summary><p lang="en">{submitted.question}</p>{image && <ImagePreview image={image} />}</details><p className="scoring-source-hint"><ScanText size={15} aria-hidden="true" /> Select a quote in the feedback to view it in the essay.</p><MarkedEssay text={submitted.essay} quote={quote} /></div>}
+        </form> : submitted && <div className="scoring-source"><div className="scoring-source-meta"><span>{TASK_LABELS[submitted.task_type]}</span><span>{countWords(submitted.essay)} words</span></div><details className="scoring-source-question"><summary>Original prompt <ChevronDown size={16} aria-hidden="true" /></summary><p lang="en">{submitted.question}</p>{image && <ImagePreview image={image} />}</details><p className="scoring-source-hint"><ScanText size={15} aria-hidden="true" /> Select a quote in the feedback to view it in the essay.</p><MarkedEssay text={submitted.essay} quote={quote} passage={passage} /></div>}
       </section>
       <aside className="scoring-feedback" aria-label="IELTS grading results">
         {busy ? <div className="scoring-wait" role="status"><img src="/capy-scholar.png" alt="" width="112" height="112" /><h2>Reading every single word.</h2><p>The prompt is analyzed, and the essay is checked against 4 criteria and verified with evidence before returning results.</p><div className="scoring-wait-line"><span className="spinner" /><span>Processing · {elapsed} seconds</span></div><small>Grading may take a bit longer when extra checks are needed. You can stop waiting and keep your draft.</small></div> : result ? <div className="scoring-result">
-          <div className="scoring-section-heading"><h2 ref={resultsRef} tabIndex={-1}>Feedback for you</h2><button className="icon-button" aria-label="Download JSON grading results" onClick={() => exportResult(result)}><Download size={18} aria-hidden="true" /></button></div>
+          <div className="scoring-section-heading"><h2 ref={resultsRef} tabIndex={-1}>Feedback for you</h2><button className="icon-button" aria-label="Download JSON grading results" onClick={() => exportResult(result, corrections)}><Download size={18} aria-hidden="true" /></button></div>
           {editing && <p className="scoring-notice">These are results from the previous grading session. Submit again to get feedback on your latest edits.</p>}
           <div className={`scoring-verdict ${result.status === 'scored' ? 'is-scored' : ''}`}><div><p>Estimated IELTS Band</p><strong>{result.estimated_overall_band === null ? '—' : result.estimated_overall_band.toFixed(1)}<span> / 9</span></strong></div><span className="scoring-status">{result.status === 'scored' ? <CheckCheck size={16} aria-hidden="true" /> : <Info size={16} aria-hidden="true" />}{STATUS_LABELS[result.status]}</span></div>
           <p className="scoring-band-note">{result.status === 'scored' ? 'Average of 4 criteria, rounded to the nearest 0.5 band. Each criterion carries a 25% weight.' : 'Overall band is shown only when all 4 criteria have been fully evaluated and verified.'}</p>
+          <div className="feedback-view-tabs" role="tablist" aria-label="Feedback view">{(['assessment', 'corrections'] as const).map(view => <button key={view} type="button" role="tab" id={`feedback-tab-${view}`} aria-selected={feedbackView === view} aria-controls={`feedback-panel-${view}`} tabIndex={feedbackView === view ? 0 : -1} onClick={() => setFeedbackView(view)} onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 'assessment' : event.key === 'End' ? 'corrections' : view === 'assessment' ? 'corrections' : 'assessment'; setFeedbackView(next); document.getElementById(`feedback-tab-${next}`)?.focus(); } }}>{view === 'assessment' ? 'Band feedback' : 'Corrections & next steps'}</button>)}</div>
+          <div id="feedback-panel-assessment" role="tabpanel" aria-labelledby="feedback-tab-assessment" hidden={feedbackView !== 'assessment'}>
           <div className="scoring-classification"><span>{CATEGORY_LABELS[result.question_category || ''] || 'Letter writing'}</span><span>Classification: {({ high: 'clear', medium: 'fairly certain', low: 'needs cross-checking' })[result.classification_confidence]}</span></div>
           {(!!result.quality_flags.length || result.status !== 'scored') && <div className="scoring-limitations"><Info size={17} aria-hidden="true" /><div><strong>Things to note</strong><ul>{(result.quality_flags.length ? result.quality_flags : [result.status === 'review_required' ? 'Inconsistent results. Please check the prompt and original essay, then grade again.' : 'More prompt context is needed before providing a full assessment.']).map((flag, i) => <li key={i}>{flag}</li>)}</ul>{result.status !== 'scored' && <button className="text-button" onClick={beginEditing}>{result.status === 'review_required' ? 'Check & grade again' : 'Add information'} <ArrowRight size={14} aria-hidden="true" /></button>}</div></div>}
           {result.criteria && <>
@@ -200,7 +209,7 @@ export default function ScoringPage({ prefill, essays = [] }: { prefill?: Essay 
               })}
             </div>
             {selected && result.criteria[selected] ? (
-              <CriterionDetail result={result} selected={selected} onQuote={q => { setQuote(q); setEditing(false); }} selectedQuote={quote} />
+              <CriterionDetail result={result} selected={selected} onQuote={q => { setQuote(q); setPassage(null); setEditing(false); }} selectedQuote={quote} />
             ) : (
               <div id="criterion-detail" role="region" aria-label="Detailed feedback" className="scoring-detail-collapsed">
                 <p><Info size={15} aria-hidden="true" /> Click a criterion above (TR, CC, LR, GRA) to open detailed feedback and quoted evidence.</p>
@@ -208,6 +217,8 @@ export default function ScoringPage({ prefill, essays = [] }: { prefill?: Essay 
             )}
           </>}
           <details className="scoring-analysis"><summary>Prompt requirements & evaluation info <ChevronDown size={16} aria-hidden="true" /></summary><ul>{result.task_requirements.map((requirement, i) => <li key={i}>{requirement}</li>)}</ul><p>{result.classification_notes}</p>{!!result.potential_missing_context.length && <ul>{result.potential_missing_context.map((context, i) => <li key={i}>{context}</li>)}</ul>}<dl><dt>Rubric</dt><dd>{result.rubric_version}</dd><dt>Grading model</dt><dd>{result.examiner_model}</dd><dt>Analysis model</dt><dd>{result.analyzer_model}</dd><dt>Prompt</dt><dd>{result.prompt_version}</dd><dt>Grading session ID</dt><dd>{result.request_id}</dd></dl></details>
+          </div>
+          <div id="feedback-panel-corrections" role="tabpanel" aria-labelledby="feedback-tab-corrections" hidden={feedbackView !== 'corrections'}>{submitted && <CorrectionsPanel key={result.request_id} input={submitted} onResult={setCorrections} onLocate={source => { setPassage(source); setQuote(''); setEditing(false); }} />}</div>
         </div> : <div className="scoring-empty"><img src="/capy-scholar.png" width="140" height="140" alt="Capy reads along with you" /><h2>Understand your writing, progress step by step.</h2><p>Add your prompt and essay. Capy will help you see your strengths and areas to improve.</p><div className="scoring-explainer"><div><BookOpenCheck size={19} aria-hidden="true" /><p><strong>All 4 criteria covered</strong><span>Task achievement, coherence, vocabulary, and grammar.</span></p></div><div><MessageSquareQuote size={19} aria-hidden="true" /><p><strong>Grounded in the original essay</strong><span>Every piece of feedback comes with a quote for your reference.</span></p></div><div><SproutIcon /><p><strong>Know your next step</strong><span>Understand what is holding your essay back from a higher band.</span></p></div></div><p className="scoring-gentle-note">A number to guide your way.<br />Every time you write, it's another step forward.</p></div>}
       </aside>
     </div>

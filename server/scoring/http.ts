@@ -2,10 +2,11 @@ import { scoreWriting } from './engine';
 import { createGemini, ProviderError } from './gemini';
 import type { Generate } from './gemini';
 import { InputError, MAX_BODY_BYTES } from './schemas';
+import type { EngineOptions } from './engine';
 
-export type ScoringEnv = { GEMINI_API_KEY?: string; GEMINI_ANALYZER_MODEL?: string; GEMINI_EXAMINER_MODEL?: string; GEMINI_EXAMINER_FALLBACK_MODEL?: string };
+export type ScoringEnv = { GEMINI_API_KEY?: string; GEMINI_ANALYZER_MODEL?: string; GEMINI_EXAMINER_MODEL?: string; GEMINI_EXAMINER_FALLBACK_MODEL?: string; GEMINI_FEEDBACK_MODEL?: string };
 export const responseJson = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
-export async function handleScoring(request: Request, env: ScoringEnv, generate?: Generate, log: (event: object) => void = event => console.info(JSON.stringify(event))): Promise<Response> {
+export async function handleScoring(request: Request, env: ScoringEnv, generate?: Generate, log: (event: object) => void = event => console.info(JSON.stringify(event)), operation: (raw: unknown, options: EngineOptions) => Promise<unknown> = scoreWriting): Promise<Response> {
   if (request.method === 'GET') return responseJson({ configured: !!env.GEMINI_API_KEY });
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'GET, POST' } });
   const origin = request.headers.get('origin');
@@ -26,7 +27,7 @@ export async function handleScoring(request: Request, env: ScoringEnv, generate?
     }
     let raw: unknown;
     try { raw = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new InputError('Invalid JSON content.'); }
-    return responseJson(await scoreWriting(raw, { generate: generate ?? createGemini(env.GEMINI_API_KEY), analyzerModel: env.GEMINI_ANALYZER_MODEL, examinerModel: env.GEMINI_EXAMINER_MODEL, examinerFallbackModel: env.GEMINI_EXAMINER_FALLBACK_MODEL, signal: AbortSignal.any([deadline, request.signal]), log }));
+    return responseJson(await operation(raw, { generate: generate ?? createGemini(env.GEMINI_API_KEY), analyzerModel: env.GEMINI_ANALYZER_MODEL, examinerModel: env.GEMINI_EXAMINER_MODEL, examinerFallbackModel: env.GEMINI_EXAMINER_FALLBACK_MODEL, signal: AbortSignal.any([deadline, request.signal]), log }));
   } catch (error) {
     if (error instanceof InputError) return responseJson({ error: error.message, code: 'invalid_input' }, 400);
     if (error instanceof ProviderError) return responseJson({ error: error.message, code: error.code }, error.code === 'not_configured' ? 503 : error.code === 'rate_limited' ? 429 : error.code === 'timeout' ? 504 : 502);

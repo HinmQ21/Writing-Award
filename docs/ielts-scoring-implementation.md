@@ -14,6 +14,16 @@ UI dùng `impeccable` và `ui-ux-pro-max`, kế thừa ivory/lavender/Capy, Nuni
 
 ## API
 
+### Correction review (2026-11-15)
+
+`POST /api/corrections` accepts the same original `ScoringInput` as `/api/score`. It is an explicit, separate operation after an assessment; it never accepts or changes a band. It uses the existing origin/body/content-type protections, 55-second deadline and streaming envelope in Netlify. The UI calls it only when **Corrections & next steps → Review my essay** is selected. A failure/stop keeps the visible assessment and original essay.
+
+The tutor proposes up to 12 focused errors/improvements with source IDs, learning priority, one primary criterion, explanation, qualitative impact and revision action. A second critical pass confirms, downgrades or excludes proposed findings. Code resolves exact excerpts/offsets from the original, validates taxonomy/confidence and rejects unsafe anchors, duplicate findings, no-op rewrites and numerical band penalties. Unverified findings produce a partial-review notice. No text is changed automatically, and suggestions are not a rewritten essay. Whole-essay omissions have no fabricated highlight. Original scores and rubric are unchanged. See [research, source references and acceptance rules](ielts-corrections-research.md).
+
+Optional `GEMINI_FEEDBACK_MODEL` selects the tutor/verifier; otherwise it follows the configured examiner (then analyzer/default Flash-Lite). The existing examiner fallback can be attempted once across the review on HTTP 429/503. A nonempty review normally makes two calls; a clean empty review makes one. `review_model`, `review_version`, original essay hash and timestamps provide provenance. Server correction logs contain metadata/counts/hash, not the full essay or proposed correction text. The review can be included in the downloaded assessment JSON. It stays in memory, matching the current grading result lifecycle.
+
+### Assessment
+
 `GET /api/score` trả `{ "configured": true|false }`, không trả khóa.
 
 `POST /api/score`, `Content-Type: application/json`:

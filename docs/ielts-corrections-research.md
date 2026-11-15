@@ -1,0 +1,42 @@
+# IELTS correction feedback: research and implementation decisions
+
+Researched 2026-11-15. Scope: formative feedback on the original response, after assessment. Interface and feedback language: English. The existing scoring rubric, original essay, saved journal and rewards remain unchanged.
+
+## Primary sources and findings
+
+1. [IELTS Writing Band Descriptors, updated May 2023](https://ielts.org/cdn/ielts-guides/ielts-writing-band-descriptors.pdf): Task Achievement/Response, Coherence & Cohesion, Lexical Resource and Grammatical Range & Accuracy are separate constructs. Descriptors distinguish relevance, development, organisation, precision, control, error frequency and effects on communication. Occasional errors can coexist with strong performance. A list of mistakes is not an arithmetic scoring rubric.
+2. [IELTS Writing preparation resources and assessment transcripts](https://ielts.org/take-a-test/preparation-resources/writing-test-resources): each criterion has equal weight within an independently assessed task. Task 1 Academic requires accurate selection/comparison of visual features; General Training letters require appropriate purpose and tone. Task 2 requires a relevant position and developed support.
+3. [British Council Academic Writing preparation](https://takeielts.britishcouncil.org/prepare/ielts-academic/writing): address all instructions, develop relevant ideas and use clear organisation; demonstrate accurate vocabulary and sentence variety rather than unnecessary complexity. Proofreading covers spelling, missing words, verb forms and punctuation.
+4. [British Council TeachingEnglish: Error Correction 1](https://www.teachingenglish.org.uk/professional-development/teachers/knowing-subject/error-correction-1): correction involves judgement; consider comprehensibility, task fulfilment, syntax and lexis. Selective feedback, error categories, learner editing and recurring problems are useful teaching approaches. This is pedagogical guidance, not an official IELTS penalty schedule.
+5. [IDP: Lexical resource](https://ielts.idp.com/prepare/article-lexical-resource-ielts-writing): word choice/collocation can change meaning; useful vocabulary needs appropriate usage. The page was accessible through indexed primary-source text; the main IDP score page returned HTTP 403 during research, so the full rubric above is the scoring authority.
+6. [Cambridge English Grammar Today: subject–verb agreement](https://dictionary.cambridge.org/grammar/british-grammar/subject-verb-agreement), [Cambridge: financial independence](https://dictionary.cambridge.org/example/english/financial-independence): reference checks for examples in the supplied career essay. Context still matters: a relative clause can refer to an entire preceding proposition, so `which plays` must not be automatically labelled wrong without resolving its referent.
+
+## Product rules derived from those findings
+
+These are implementation decisions, not claims that IELTS prescribes this interface or taxonomy.
+
+- Distinguish **Error** (a well-supported language/task problem) from **Improvement** (development, organisation or an optional refinement). Do not call acceptable British/American spelling, grammatical alternatives, simple accurate language or personal style an error.
+- Assign one primary criterion per issue. Categories: grammar, vocabulary, spelling, punctuation, organisation, development and task fulfilment. Do not count the same issue as multiple independent point deductions.
+- Each item explains what is wrong or limited, why it matters for its criterion and what the learner can do. Priority is pedagogical (high/medium/low), not an official severity scale or band deduction. Never output numerical penalties, a predicted score after edits or a claim that fixing the list guarantees a band.
+- Preserve the writer's stance, facts and voice. Suggest a minimal sentence correction for a single anchored language issue; use an actionable revision instruction for content, missing requirements or multi-sentence problems. Never generate a complete replacement essay or silently apply changes.
+- Locate passages through server-assigned IDs of exact original excerpts. Resolve IDs and UTF-16 ranges on the server; the model does not generate quote text or offsets. Repeated sentences resolve to their actual occurrence. A whole-essay omission has no invented quote or fake highlight.
+- Group recurring problems using up to three examples; this is an example count, not a claim to have counted every occurrence. Return at most 12 focused issues, ordered by priority. An empty review means no confident issue was identified, not that the essay is perfect or a guaranteed Band 9.
+- Only high-confidence findings may be labelled errors; uncertain diagnoses must be omitted or framed as an improvement to check in context. This is an AI self-report, not independent verification. Deterministic validation checks source anchoring and structure, not linguistic truth.
+- A second, critical model pass reviews the proposed findings against the full original context. It can confirm, downgrade to improvement, or omit an item; it cannot add findings or change bands. Incomplete verification fails the review safely rather than publishing the draft. The check reduces false positives but is still AI, not a human examiner. A normal nonempty review uses two model calls; an empty review uses one. The configured overload fallback is bounded to one additional attempt across the review.
+- Academic Task 1 without the image: review language/organisation, but do not verify unseen figures, invent missing chart facts or diagnose data inaccuracies. General Training letters: consider recipient/purpose/tone; do not impose Academic Task 1 chart rules.
+- Keep correction generation separate from scoring. Explicit **Review my essay** starts another server request for the assessed original snapshot. Show loading, stop, retry, partial, empty and failure states. Failure never removes the existing bands or original text. No automatic extra Gemini request on navigation, score completion, save or checkbox selection.
+- Invalid/unknown anchors, incompatible categories, uncertain error labels, no-op suggestions and duplicates are omitted with an explicit partial-review notice. Malformed full responses fail safely and can be retried. Keep validation and provider failures separate from a clean empty review.
+- Export the review with the assessment JSON when available; neither score nor journal is changed. Results remain in memory, like current scoring results.
+
+## Examples and non-examples
+
+- `financial dependence` in a paragraph about paying one's own expenses: consider a vocabulary error; explain the reversed intended meaning, with `financial independence` as a minimal suggested change. This judgement depends on the paragraph context.
+- `studying university`: a grammar/collocation issue can be addressed minimally with `studying at university`; do not rewrite the writer's whole argument.
+- `which plays ...`: determine whether `which` refers to plural projects/connections or the entire preceding situation. If the reference is ambiguous, explain the ambiguity as an improvement instead of asserting a universal agreement error.
+- A weak causal link between rising service prices and a school leaver's pay is a development issue. Ask the learner to explain the link or use a relevant support example; do not invent labour-market statistics.
+- Missing an opinion is a Task Response issue only if the actual task requests an opinion and the full response lacks one. The career essay explicitly states its opinion and must not be marked as missing it.
+- `organise` and `organize` are valid variants. A concise, correct sentence is not wrong just because a more elaborate alternative exists.
+
+## Verification contract
+
+Use the supplied career essay as a live integration smoke case, not a human-calibrated score reference. Unit tests cover source identity, repeated text, Unicode, taxonomy/task compatibility, global omissions, uncertain errors, duplicates, partial/empty/malformed results and immutable input. Browser tests cover score retention during errors, explicit request, cancellation/retry, stale snapshots, filters, highlighting, keyboard interaction, reflow and both themes. Inspect actual desktop/mobile renders. No claim of exhaustive detection, examiner equivalence or guaranteed score improvement.
