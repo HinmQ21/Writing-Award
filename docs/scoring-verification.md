@@ -10,6 +10,8 @@ Validation: **90 unit tests passed**; **36 scoring/correction E2E tests passed**
 
 Fresh scoped Impeccable finish review returned **ship**, with no material fixes, after examining six current desktop/mobile light/dark captures plus the implementation and persisted direction. Main captures use representative fixtures; mobile reading captures use the successful live response with the final server's source-ID copy rule. Existing DESIGN.md and semantic tokens were preserved. The skill reports pre-existing sidecar drift and an available skill update; neither was changed as part of this feature.
 
+Production deploy `6af9735aa36ab4209aa32404` serves the extension. A browser smoke reused the previously verified production assessment to isolate the new operation, then sent a real unmocked correction request to Netlify/Gemini. Request `1277b6be-0cd2-4784-a421-41360b0389ce` returned a complete review with seven findings (five errors, two improvements), exact original source ranges, functioning passage highlighting and unchanged original/visible 7.0 assessment. The ambiguous relative clause was an improvement with no forced replacement. Desktop and dark mobile production captures were inspected. This does not assert that a fresh grading call was made during the correction smoke or that the seven findings are exhaustive.
+
 ## Exact evidence regression (2026-11-13)
 
 The supplied university-versus-work essay reproduced `review_required` with no score. The examiner shortened quotes with `...` and capitalized an in-sentence `the`; the audit then incorrectly changed the essay's `believed` to `believe`. Strict validation correctly rejected those quotations, including after reassessment.
