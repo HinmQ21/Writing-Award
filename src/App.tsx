@@ -1,10 +1,12 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { ArrowDownToLine, ArrowRight, BookOpen, Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, CloudRain, Crown, Download, FileText, Flame, Heart, House, Leaf, Library, LockKeyhole, Minus, NotebookPen, Plus, RotateCcw, Settings, ShieldCheck, Snowflake, Sparkles, Sprout, Star, Sun, Upload, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import './scoring/choices.css';
 import './prompts.css';
 import { BookOpenCheck } from 'lucide-react';
+import { baseMood, entrySteps, reconcileSteps, REJECTED_STEPS, useCapyMood } from './capyMood';
+import type { CapyStep } from './capyMood';
 import { activeWorld, attachPrompt, createProgress, dayKey, displayDate, DRAFT_KEY, essaySource, minimumWords, nextVersion, parseProgress, PIECES, PROMPT_DRAFTS_KEY, promptTitle, reconcileProgress, STORAGE_KEY, submitEssay, TIMEZONE, wordCount, worldPieces, WORLDS } from './model';
 import type { Essay, Page, Progress, PromptSelection, ScoringEssay, Task, WritingPrompt } from './model';
 import PromptChooser from './PromptChooser';
@@ -20,12 +22,15 @@ const NAV: { page: Page; label: string; icon: LucideIcon }[] = [
   { page: 'home', label: 'Your space', icon: House }, { page: 'collection', label: 'Collection', icon: Library }, { page: 'journal', label: 'Writing journal', icon: BookOpen }, { page: 'scoring', label: 'IELTS feedback', icon: BookOpenCheck },
 ];
 function currentPage(): Page { const h = location.hash.slice(1); return ['collection', 'journal', 'scoring', 'settings'].includes(h) ? h as Page : 'home'; }
-function readInitial(): { progress: Progress; issue: string; blocked: boolean } {
+function readInitial(): { progress: Progress; issue: string; blocked: boolean; capySteps: CapyStep[] } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return { progress: raw ? reconcileProgress(parseProgress(raw)) : createProgress(), issue: '', blocked: false };
-  } catch { return { progress: createProgress(false), issue: 'Could not read browser data. Previous data kept safe. You can download a backup in Settings before starting over.', blocked: true }; }
+    if (!raw) return { progress: createProgress(), issue: '', blocked: false, capySteps: [] };
+    const saved = parseProgress(raw), progress = reconcileProgress(saved);
+    return { progress, issue: '', blocked: false, capySteps: reconcileSteps(saved, progress) };
+  } catch { return { progress: createProgress(false), issue: 'Could not read browser data. Previous data kept safe. You can download a backup in Settings before starting over.', blocked: true, capySteps: [] }; }
 }
+const TYPING_MS = 20_000;
 function Dialog({ title, children, onClose, className = '' }: { title: string; children: ReactNode; onClose: () => void; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const d = ref.current!; const trigger = document.activeElement as HTMLElement | null; if (!d.open) d.showModal(); return () => { if (d.open) d.close(); trigger?.focus(); }; }, []);
@@ -76,6 +81,19 @@ function App() {
   const sceneRef = useRef<SceneHandle>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lastPage = useRef(page);
+  // Capy's mood: queued reactions first, then Focused while the essay is being typed, then a resting mood from progress and the time of day.
+  const [now, setNow] = useState(() => new Date());
+  const [typing, setTyping] = useState(false);
+  const typingTimer = useRef(0);
+  const entryReaction = useRef<CapyStep[]>([]);
+  const { mood: capyMood, play: playCapy, interrupt: interruptCapy, markReady: capyReady } = useCapyMood(typing ? 'Focused' : baseMood(progress, now), initial.capySteps);
+  const onTyping = useCallback(() => {
+    setTyping(true); interruptCapy(); // writing again ends any reaction still playing
+    clearTimeout(typingTimer.current); typingTimer.current = window.setTimeout(() => setTyping(false), TYPING_MS);
+  }, [interruptCapy]);
+  const onRejected = useCallback(() => playCapy(REJECTED_STEPS), [playCapy]);
+  useEffect(() => { const timer = setInterval(() => setNow(new Date()), 60_000); return () => { clearInterval(timer); clearTimeout(typingTimer.current); }; }, []);
+  useEffect(() => { if (initial.capySteps.some(step => step.mood === 'Chilly')) setToast(`A streak freeze covered yesterday. Your ${initial.progress.streak}-day streak is safe.`); }, [initial]);
   const world = activeWorld(progress.pieces);
   const count = worldPieces(progress.pieces, world);
   const doneToday = progress.lastRewardDay === dayKey();
@@ -106,7 +124,11 @@ function App() {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && !blocked) latest = reconcileProgress(parseProgress(stored));
     const result = submitEssay(latest, text, task, new Date(), selection);
-    persist(result.progress); setScoreAfterReward(scoreNow); if (scoreNow) setScoringEssay(essaySource(result.progress.essays[0], result.progress)); setReward(result); setAnimate(false); setSelectedWorld(result.world);
+    const newDay = result.progress.lastRewardDay !== latest.lastRewardDay;
+    persist(result.progress);
+    // Capy celebrates when the reward dialog closes and the new piece drops in.
+    entryReaction.current = entrySteps(newDay, newDay && result.progress.streak % 7 === 0, result.complete);
+    clearTimeout(typingTimer.current); setTyping(false); setScoreAfterReward(scoreNow); if (scoreNow) setScoringEssay(essaySource(result.progress.essays[0], result.progress)); setReward(result); setAnimate(false); setSelectedWorld(result.world);
     if (progress.sound) playReward();
     return result.progress.essays[0];
   }
@@ -126,7 +148,7 @@ function App() {
     const updated = attachPrompt(latest, linkEssay.id, selection);
     persist(updated); setLinkEssay(null); setViewEssay(null); notify('Prompt linked. Your original writing and rewards are unchanged.');
   }
-  function finishReward() { if (scoreAfterReward) { setScoreAfterReward(false); location.hash = 'scoring'; } else if (reward?.complete) { setSelectedWorld(reward.world); location.hash = 'collection'; } setReward(null); setAnimate(true); }
+  function finishReward() { if (scoreAfterReward) { setScoreAfterReward(false); location.hash = 'scoring'; } else if (reward?.complete) { setSelectedWorld(reward.world); location.hash = 'collection'; } setReward(null); setAnimate(true); playCapy(entryReaction.current); entryReaction.current = []; }
   function advanceDemo() {
     if (!progress.demo) return;
     try { const pieces = Math.min(63, (Math.floor(progress.pieces / 21) + 1) * 21); persist({ ...progress, pieces }); setSelectedWorld(activeWorld(pieces)); setAnimate(false); notify(pieces === 63 ? 'Unlocked all 3 worlds in the sample data.' : `Unlocked ${WORLDS[activeWorld(pieces)].short} in the sample data.`); } catch (error) { setIssue((error as Error).message); }
@@ -167,7 +189,8 @@ function App() {
                 <div className="world-panel-heading"><div><h2 id="world-title">{WORLDS[world].short} <House aria-hidden="true" size={19} /></h2><p>{WORLDS[world].name}</p></div><span className="world-badge">World {world + 1}<span>/ 3</span></span></div>
                 <div className={`scene-stage ${progress.rainyUntil && progress.rainyUntil >= dayKey() ? 'rainy' : ''}`}>
                   <div className="scene-status">{progress.rainyUntil && progress.rainyUntil >= dayKey() ? <><CloudRain aria-hidden="true" size={14} /> A bit of rain, then the sun will return</> : <><span className="status-dot" /> Growing right along with you</>}</div>
-                  <div className="scene-stars" role="img" aria-label={`Decorative stars: ${progress.stars} out of 3`}>{[0, 1, 2].map(i => <Star aria-hidden="true" key={i} size={13} className={i < progress.stars ? "filled" : ""} style={{ opacity: i < progress.stars ? 1 : .35 }} />)}</div><Suspense fallback={<LoadingScene />}><Scene ref={sceneRef} world={world} pieces={count} animatePiece={animate} rainy={!!progress.rainyUntil && progress.rainyUntil >= dayKey()} onCapyPet={() => {
+                  <div className="scene-stars" role="img" aria-label={`Decorative stars: ${progress.stars} out of 3`}>{[0, 1, 2].map(i => <Star aria-hidden="true" key={i} size={13} className={i < progress.stars ? "filled" : ""} style={{ opacity: i < progress.stars ? 1 : .35 }} />)}</div><Suspense fallback={<LoadingScene />}><Scene ref={sceneRef} world={world} pieces={count} animatePiece={animate} rainy={!!progress.rainyUntil && progress.rainyUntil >= dayKey()} mood={capyMood} onCapyReady={capyReady} onCapyPet={reaction => {
+                    if (reaction === 'Grumpy') { notify('Capy puffs up its cheeks: "Okay, okay! One little pat at a time, please."'); return; }
                     const quotes = [
                       'Capy: "A little bit every day, you\'re doing wonderfully!"',
                       'Capy: "Take a tiny moment of quiet just for yourself."',
@@ -189,7 +212,7 @@ function App() {
                 <Stat icon={NotebookPen} tone="mint" label="Written entries" value={progress.essays.length} unit={progress.essays.length === 1 ? 'essay' : 'essays'} description="Every entry is precious" />
               </div>
             </div>
-            <WritingForm progress={progress} complete={progress.pieces === 63} key={progress.demo ? 'demo' : 'real'} doneToday={doneToday} onSubmit={onSubmit} onHelp={() => setHelp(true)} onDraftError={setIssue} />
+            <WritingForm progress={progress} complete={progress.pieces === 63} key={progress.demo ? 'demo' : 'real'} doneToday={doneToday} onSubmit={onSubmit} onHelp={() => setHelp(true)} onDraftError={setIssue} onTyping={onTyping} onRejected={onRejected} />
           </div>
           <div className="daily-note"><span><Leaf aria-hidden="true" size={18} /><span>No need to be perfect. <strong>Just be here and write a little more.</strong></span></span>{progress.demo && <button className="text-button" onClick={advanceDemo} disabled={progress.pieces >= 63}><LockKeyhole aria-hidden="true" size={14} /> {progress.pieces >= 63 ? 'All sample worlds unlocked' : 'View next world'}<ArrowRight aria-hidden="true" size={14} /></button>}</div>
         </>}
@@ -213,7 +236,7 @@ function App() {
 function Stat({ icon: Icon, tone, label, value, unit, description }: { icon: LucideIcon; tone: string; label: string; value: number; unit: string; description: string }) {
   return <div className={`stat stat-${tone}`}><div className="stat-top"><span className="stat-icon"><Icon aria-hidden="true" size={21} /></span><span>{label}</span></div><div className="stat-value">{value}<span>{unit}</span></div><p>{description}</p></div>;
 }
-function WritingForm({ progress, complete, doneToday, onSubmit, onHelp, onDraftError }: { progress: Progress; complete: boolean; doneToday: boolean; onSubmit: (text: string, task: Task, scoreNow: boolean, selection: PromptSelection) => Essay; onHelp: () => void; onDraftError: (message: string) => void }) {
+function WritingForm({ progress, complete, doneToday, onSubmit, onHelp, onDraftError, onTyping, onRejected }: { progress: Progress; complete: boolean; doneToday: boolean; onSubmit: (text: string, task: Task, scoreNow: boolean, selection: PromptSelection) => Essay; onHelp: () => void; onDraftError: (message: string) => void; onTyping: () => void; onRejected: () => void }) {
   const [draft, setDraft] = useState(readPracticeDraft);
   const text = draft.text, task = draft.task;
   function setText(text: string) { setDraft(old => ({ ...old, text })); }
@@ -265,8 +288,8 @@ function WritingForm({ progress, complete, doneToday, onSubmit, onHelp, onDraftE
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); if (busyRef.current) return;
-    if (!ready) { setError(`Task ${task} needs at least ${minimum} words. You still need ${minimum - words} more words.`); setMode('paste'); requestAnimationFrame(() => textRef.current?.focus()); return; }
-    if (!draft.promptId && (draft.source === 'saved' || !/[\p{L}\p{N}]/u.test(draft.question))) { setPromptError(true); setError('Choose or enter a writing prompt before saving this version.'); requestAnimationFrame(() => document.getElementById(draft.source === 'saved' ? 'practice-prompt-search' : 'practice-question')?.focus()); return; }
+    if (!ready) { setError(`Task ${task} needs at least ${minimum} words. You still need ${minimum - words} more words.`); setMode('paste'); onRejected(); requestAnimationFrame(() => textRef.current?.focus()); return; }
+    if (!draft.promptId && (draft.source === 'saved' || !/[\p{L}\p{N}]/u.test(draft.question))) { setPromptError(true); setError('Choose or enter a writing prompt before saving this version.'); onRejected(); requestAnimationFrame(() => document.getElementById(draft.source === 'saved' ? 'practice-prompt-search' : 'practice-question')?.focus()); return; }
     busyRef.current = true; setSaving(true); setError('');
     try {
       await new Promise<void>(r => setTimeout(r, 180)); const saved = onSubmit(text, task, scoreNow, draft);
@@ -281,7 +304,7 @@ function WritingForm({ progress, complete, doneToday, onSubmit, onHelp, onDraftE
     {draft.promptId && <p className="practice-version-label">Writing Version {nextVersion(progress, draft.promptId)} <span>· Earlier versions stay in your journal</span></p>}
     <div className="input-tabs" role="tablist" aria-label="Import writing"><button type="button" role="tab" id="paste-tab" aria-selected={mode === 'paste'} aria-controls="writing-input" onClick={() => setMode('paste')} onKeyDown={e => { if (e.key === 'ArrowRight') { setMode('upload'); document.getElementById('upload-tab')?.focus(); } }} tabIndex={mode === 'paste' ? 0 : -1}><FileText aria-hidden="true" size={15} /> Paste writing</button><button type="button" role="tab" id="upload-tab" aria-selected={mode === 'upload'} aria-controls="writing-upload" onClick={() => setMode('upload')} onKeyDown={e => { if (e.key === 'ArrowLeft') { setMode('paste'); document.getElementById('paste-tab')?.focus(); } }} tabIndex={mode === 'upload' ? 0 : -1}><Upload aria-hidden="true" size={15} /> Upload file</button></div>
     {mode === 'paste' && (reading ? <p className="import-notice" role="status">Reading file content… Hang on just a moment.</p> : fileName && <p className="import-notice" role="status"><FileText aria-hidden="true" size={15} /><span>Read <strong>{fileName}</strong>. You can edit the content before saving.</span></p>)}
-    {mode === 'paste' ? <div id="writing-input" role="tabpanel" aria-labelledby="paste-tab" className={`editor ${error ? 'has-error' : ''}`}><label className="sr-only" htmlFor="essay">IELTS Writing Task {task}</label><textarea id="essay" ref={textRef} value={text} maxLength={100_000} readOnly={reading} onChange={e => { setText(e.target.value); setError(''); setSavedDraft(false); }} placeholder={`Paste your Writing Task ${task} here…\n\nEvery little word is a big step forward.`} aria-describedby={`word-count ${error ? 'form-error' : 'writing-note'}`} aria-invalid={!!error} spellCheck={false} lang="en" /><div className="editor-footer"><span className="draft-status">{savedDraft ? <><Check aria-hidden="true" size={12} /> Draft saved</> : fileName ? <><FileText aria-hidden="true" size={12} /> File read</> : 'Your cozy corner'}</span><span id="word-count" className={`word-count ${ready ? 'ready' : ''}`}>{ready && <Check aria-hidden="true" size={12} />}<strong>{words}</strong> / {minimum} words</span></div></div> : <div id="writing-upload" role="tabpanel" aria-labelledby="upload-tab" className="upload-panel" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); void uploadFile(e.dataTransfer.files[0]); }}><Upload aria-hidden="true" size={30} strokeWidth={1.4} /><strong>{reading ? 'Reading writing…' : 'Bring your writing here'}</strong><p>Drag and drop files or choose from device</p><button type="button" className="button secondary" disabled={reading} onClick={() => fileRef.current?.click()}>Choose writing file</button><small>Word (.docx), TXT, Markdown · up to 5 MB</small></div>}
+    {mode === 'paste' ? <div id="writing-input" role="tabpanel" aria-labelledby="paste-tab" className={`editor ${error ? 'has-error' : ''}`}><label className="sr-only" htmlFor="essay">IELTS Writing Task {task}</label><textarea id="essay" ref={textRef} value={text} maxLength={100_000} readOnly={reading} onChange={e => { setText(e.target.value); setError(''); setSavedDraft(false); onTyping(); }} placeholder={`Paste your Writing Task ${task} here…\n\nEvery little word is a big step forward.`} aria-describedby={`word-count ${error ? 'form-error' : 'writing-note'}`} aria-invalid={!!error} spellCheck={false} lang="en" /><div className="editor-footer"><span className="draft-status">{savedDraft ? <><Check aria-hidden="true" size={12} /> Draft saved</> : fileName ? <><FileText aria-hidden="true" size={12} /> File read</> : 'Your cozy corner'}</span><span id="word-count" className={`word-count ${ready ? 'ready' : ''}`}>{ready && <Check aria-hidden="true" size={12} />}<strong>{words}</strong> / {minimum} words</span></div></div> : <div id="writing-upload" role="tabpanel" aria-labelledby="upload-tab" className="upload-panel" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); void uploadFile(e.dataTransfer.files[0]); }}><Upload aria-hidden="true" size={30} strokeWidth={1.4} /><strong>{reading ? 'Reading writing…' : 'Bring your writing here'}</strong><p>Drag and drop files or choose from device</p><button type="button" className="button secondary" disabled={reading} onClick={() => fileRef.current?.click()}>Choose writing file</button><small>Word (.docx), TXT, Markdown · up to 5 MB</small></div>}
     <input className="sr-only" tabIndex={-1} type="file" accept={UPLOAD_ACCEPT} disabled={reading || saving} ref={fileRef} aria-label="Choose Word DOCX, TXT, or Markdown file" onChange={e => void uploadFile(e.target.files?.[0])} />
     {error && <p className="form-error" id="form-error" role="alert">{error}{text && <button className="text-button" type="button" onClick={() => download(text, 'writing-draft.txt', 'text/plain')}><Download aria-hidden="true" size={13} /> Download draft</button>}</p>}
     <p className="writing-note" id="writing-note">{complete ? <><CheckCheck aria-hidden="true" size={14} /> Three worlds completed. Let's keep writing.</> : doneToday ? <><CheckCheck aria-hidden="true" size={14} /> Today's piece received. New writing will still be saved.</> : <><Sprout aria-hidden="true" size={15} /> Reach {minimum} words, and a new piece is yours.</>}</p>

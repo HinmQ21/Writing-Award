@@ -2,7 +2,11 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RotateCcw } from 'lucide-react';
+import type { CapyMood } from './capyMood';
+import { createCapy, loadCapyModel, loadedCapyModel } from './capyModel';
+import type { CapyActor } from './capyModel';
 import { useTheme } from './theme';
 
 export type SceneHandle = { rotate: (direction: number) => void; zoom: (direction: number) => void; reset: () => void };
@@ -13,8 +17,15 @@ type Props = {
   animatePiece?: boolean;
   miniature?: boolean;
   rewardPiece?: boolean;
-  onCapyPet?: () => void;
+  /** Capy's resting mood. Changing it cross-fades the animation without rebuilding the scene. */
+  mood?: CapyMood;
+  /** A tap on Capy: Surprised, or Grumpy after four taps within three seconds. */
+  onCapyPet?: (reaction: CapyMood) => void;
+  /** The 3D Capy is on screen. */
+  onCapyReady?: () => void;
 };
+// Capy sits at the front-left of every world except the Lego one, turned a little toward the steps but facing the camera enough to read its face.
+const CAPY_X = -1.72, CAPY_Z = 1.8, CAPY_SCALE = 1.18, CAPY_TURN = 1.08;
 const C = { grass: '#c4d49b', earth: '#d8c29e', cream: '#ffe9bd', trim: '#e8bc83', wood: '#a9794b', roof: '#e69b92', dark: '#5e4435', leaf: '#9cb86d', flower: '#e4adc0', water: '#b4d3ce', glass: '#e9d6a2', gold: '#e9bc65' };
 const materials = new Map<string, THREE.MeshStandardMaterial>();
 function material(color: string) {
@@ -57,192 +68,6 @@ function createHeartGeometry() {
   shape.bezierCurveTo(0, -s * 0.4, s * 0.6, 0, s * 0.6, s * 0.4);
   shape.bezierCurveTo(s * 0.6, s * 0.9, 0, s * 0.7, 0, s * 0.3);
   return new THREE.ExtrudeGeometry(shape, { depth: 0.02, bevelEnabled: false });
-}
-
-export type CapyRefs = {
-  root: THREE.Group;
-  body: THREE.Group;
-  head: THREE.Group;
-  book: THREE.Group;
-  leftEar: THREE.Group;
-  rightEar: THREE.Group;
-};
-
-function capy(parent: THREE.Object3D, x: number, z: number, size = 1, crowned = false): CapyRefs {
-  const root = new THREE.Group();
-  root.position.set(x, 0.12, z);
-  // Camera in root local space is at azimuth ~+1.07 rad.
-  // Setting rotation.y = +1.36 rad angles the Capybara 3/4 toward the RIGHT-FRONT (toward the cottage steps),
-  // matching docs/a_detailed_ui_ux_concept_presentation_for_a_cute_w.png!
-  root.rotation.y = 1.36;
-  root.scale.setScalar(size);
-  root.userData.isCapy = true;
-  parent.add(root);
-
-  const body = new THREE.Group();
-  body.userData.isCapy = true;
-  root.add(body);
-
-  const fur = '#e8a460';
-  const furShade = '#dc9652';
-  const furLight = '#f4be84';
-  const muzzleColor = '#b3764c';
-  const pawColor = '#9e643c';
-  const earOuter = '#c88453';
-  const earInner = '#885130';
-  const darkInk = '#2f1b10';
-  const blushColor = '#f2957e';
-  const beretPink = '#f6b8bc';
-  const beretStem = '#de9498';
-  const padPaper = '#fcf1dc';
-  const padShade = '#e8d4b4';
-  const padLine = '#d4bc98';
-
-  // 1. Compact, Chubby Sitting Body (1.5-head chibi proportions matching concept art)
-  const lathePts = [
-    new THREE.Vector2(0.001, 0.02),
-    new THREE.Vector2(0.38, 0.03),
-    new THREE.Vector2(0.49, 0.12),
-    new THREE.Vector2(0.52, 0.26),
-    new THREE.Vector2(0.50, 0.42),
-    new THREE.Vector2(0.46, 0.56),
-    new THREE.Vector2(0.41, 0.68),
-    new THREE.Vector2(0.001, 0.74),
-  ];
-  const bodyGeo = new THREE.LatheGeometry(lathePts, 36);
-  const torsoMesh = mesh(body, bodyGeo, fur, 0, 0, -0.02);
-  torsoMesh.scale.set(1.05, 1.0, 1.02);
-
-  // Warm soft belly glow (kept flush inside torso so it never clips the notebook)
-  const bellyPatch = ball(body, 0.34, furLight, 0, 0.32, 0.10, [0.82, 0.82, 0.58]);
-  bellyPatch.castShadow = false;
-
-  // 2. Big, Wide, Chubby-Cheeked Capybara Head sitting low & seamlessly on the body
-  const head = new THREE.Group();
-  head.position.set(0, 0.58, 0.03);
-  head.userData.isCapy = true;
-  body.add(head);
-
-  // Single unified wide chubby head & cheeks (no intermediate bump!)
-  ball(head, 0.46, fur, 0, 0.23, 0, [1.08, 0.88, 1.02]);
-  ball(head, 0.41, fur, 0, 0.32, -0.01, [1.02, 0.82, 0.96]);
-
-  // Plump, Rounded Caramel-Brown Muzzle Cushion at the front of the face (matching concept_capy_1.png)
-  ball(head, 0.22, muzzleColor, 0, 0.20, 0.37, [0.88, 1.05, 0.78]);
-
-  // Two cute dark-brown teardrop nostrils (\ /) near the top of the caramel muzzle
-  const nL = ball(head, 0.033, darkInk, -0.052, 0.295, 0.525, [1.18, 0.82, 0.65]);
-  nL.rotation.z = -0.45;
-  nL.rotation.y = -0.18;
-  const nR = ball(head, 0.033, darkInk, 0.052, 0.295, 0.525, [1.18, 0.82, 0.65]);
-  nR.rotation.z = 0.45;
-  nR.rotation.y = 0.18;
-
-  // Clean vertical philtrum groove (|) down the center of the caramel muzzle
-  box(head, 0.022, 0.20, 0.024, darkInk, 0, 0.175, 0.532, 0.008);
-  // Subtle little mouth curve at the bottom of the philtrum
-  const mL = box(head, 0.042, 0.020, 0.022, darkInk, -0.017, 0.078, 0.518, 0.007);
-  mL.rotation.z = 0.26;
-  const mR = box(head, 0.042, 0.020, 0.022, darkInk, 0.017, 0.078, 0.518, 0.007);
-  mR.rotation.z = -0.26;
-
-  // Happy Smiling Curved-Arc Eyes (︵) & Soft Coral-Pink Cheek Blushes (cleanly on the surface of the chubby face!)
-  [-1, 1].forEach(side => {
-    const eyeGroup = new THREE.Group();
-    eyeGroup.position.set(side * 0.235, 0.315, 0.405);
-    eyeGroup.rotation.y = side * 0.48;
-    eyeGroup.rotation.x = -0.12;
-    eyeGroup.rotation.z = side * -0.05;
-    head.add(eyeGroup);
-
-    // Upward happy crescent arch (︵)
-    const arcGeo = new THREE.TorusGeometry(0.058, 0.020, 12, 24, Math.PI * 0.82);
-    const arcMesh = mesh(eyeGroup, arcGeo, darkInk, 0, -0.015, 0);
-    arcMesh.rotation.z = Math.PI * 0.09;
-    const aStart = Math.PI * 0.09;
-    const aEnd = Math.PI * 0.91;
-    ball(eyeGroup, 0.020, darkInk, Math.cos(aStart) * 0.058, -0.015 + Math.sin(aStart) * 0.058, 0);
-    ball(eyeGroup, 0.020, darkInk, Math.cos(aEnd) * 0.058, -0.015 + Math.sin(aEnd) * 0.058, 0);
-
-    // Rosy coral-pink cheek blush right below the happy eye
-    const blush = ball(head, 0.072, blushColor, side * 0.285, 0.21, 0.37, [1.18, 0.68, 0.52]);
-    blush.rotation.y = side * 0.52;
-    blush.castShadow = false;
-  });
-
-  // Small Rounded C-Shaped Capybara Ears on the upper sides of the head
-  const leftEar = new THREE.Group();
-  leftEar.position.set(-0.35, 0.46, -0.03);
-  leftEar.rotation.set(-0.10, -0.22, 0.42);
-  head.add(leftEar);
-  ball(leftEar, 0.11, earOuter, 0, 0, 0, [0.95, 1.08, 0.58]);
-  ball(leftEar, 0.068, earInner, 0, -0.005, 0.035, [0.75, 0.85, 0.40]);
-
-  const rightEar = new THREE.Group();
-  rightEar.position.set(0.35, 0.46, -0.03);
-  rightEar.rotation.set(-0.10, 0.22, -0.42);
-  head.add(rightEar);
-  ball(rightEar, 0.11, earOuter, 0, 0, 0, [0.95, 1.08, 0.58]);
-  ball(rightEar, 0.068, earInner, 0, -0.005, 0.035, [0.75, 0.85, 0.40]);
-
-  // Cute Pastel-Pink Beret Hat sitting cleanly on top of the head (no fur poking through!)
-  const beret = new THREE.Group();
-  beret.position.set(-0.02, 0.59, -0.01);
-  beret.rotation.set(-0.08, 0, 0.10);
-  head.add(beret);
-  ball(beret, 0.30, beretPink, 0, 0, 0, [1.10, 0.48, 1.05]);
-  const stem = box(beret, 0.038, 0.07, 0.038, beretStem, -0.01, 0.135, 0, 0.015);
-  stem.rotation.z = 0.22;
-
-  // Golden Crown when World > 0
-  if (crowned) {
-    cylinder(head, 0.14, 0.085, C.gold, 0, 0.72, -0.01);
-    for (let i = 0; i < 5; i++) {
-      const a = i * Math.PI * 2 / 5;
-      mesh(head, new THREE.ConeGeometry(0.045, 0.14, 5), C.gold, Math.cos(a) * 0.11, 0.80, -0.01 + Math.sin(a) * 0.11);
-    }
-  }
-
-  // 3. Cream-Ivory Writing Pad / Booklet Held Cleanly in Front of the Chest (matching concept_capy_1.png)
-  const book = new THREE.Group();
-  book.position.set(0, 0.36, 0.54);
-  book.rotation.x = -0.14;
-  body.add(book);
-
-  // Back page stack + front cream writing sheet with subtle top fold/lines
-  box(book, 0.30, 0.36, 0.042, padShade, 0, 0, -0.014, 0.020);
-  box(book, 0.31, 0.36, 0.032, padPaper, 0, 0.006, 0.008, 0.020);
-  box(book, 0.22, 0.020, 0.012, padLine, 0, 0.11, 0.025, 0.005);
-  box(book, 0.18, 0.016, 0.012, padLine, -0.02, 0.05, 0.025, 0.004);
-
-  // Chubby Arms & Rounded Caramel Paws Clasping Both Sides of the Writing Pad
-  [-1, 1].forEach(side => {
-    const arm = new THREE.Group();
-    arm.position.set(side * 0.33, 0.37, 0.26);
-    arm.rotation.set(0.05, side * -0.52, side * 0.10);
-    body.add(arm);
-    ball(arm, 0.14, furShade, 0, 0, 0.06, [0.85, 0.85, 1.55]);
-
-    const paw = new THREE.Group();
-    paw.position.set(side * 0.185, 0.35, 0.545);
-    paw.rotation.y = side * -0.25;
-    body.add(paw);
-    ball(paw, 0.095, pawColor, 0, 0, 0, [0.95, 1.05, 0.85]);
-  });
-
-  // 4. Two Cute, Stubby Rounded Caramel-Brown Sitting Feet at the Bottom Front
-  [-1, 1].forEach(side => {
-    const foot = new THREE.Group();
-    foot.position.set(side * 0.21, 0.11, 0.36);
-    foot.rotation.set(-0.15, side * -0.20, 0);
-    body.add(foot);
-    ball(foot, 0.125, pawColor, 0, 0, 0, [0.96, 0.85, 1.18]);
-    // Subtle dark-brown toe crease on the front of the stubby foot
-    box(foot, 0.016, 0.075, 0.04, darkInk, side * -0.015, -0.01, 0.13, 0.005);
-  });
-
-  root.traverse(obj => { obj.userData.isCapy = true; });
-  return { root, body, head, book, leftEar, rightEar };
 }
 
 function windowRound(parent: THREE.Object3D, x: number, y: number, z: number, radius = .34) {
@@ -458,13 +283,20 @@ type FloatingHeart = {
   vz: number;
 };
 
-const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rainy = false, animatePiece = false, miniature = false, rewardPiece = false, onCapyPet }, ref) {
+const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rainy = false, animatePiece = false, miniature = false, rewardPiece = false, mood = 'Calm', onCapyPet, onCapyReady }, ref) {
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<SceneHandle>({ rotate: () => {}, zoom: () => {}, reset: () => {} });
   const [failed, setFailed] = useState(false);
   const { resolvedTheme } = useTheme();
   const applyAppearance = useRef<(dark: boolean) => void>(() => {});
   useImperativeHandle(ref, () => ({ rotate: d => api.current.rotate(d), zoom: d => api.current.zoom(d), reset: () => api.current.reset() }), []);
+  // Mood and callbacks reach the running scene through refs, so a new mood or a re-rendered parent never rebuilds it.
+  // These effects are declared before the scene effect so the refs are current when it runs.
+  const moodRef = useRef(mood);
+  const capyRef = useRef<CapyActor | null>(null);
+  const callbacks = useRef({ onCapyPet, onCapyReady });
+  useEffect(() => { callbacks.current = { onCapyPet, onCapyReady }; });
+  useEffect(() => { moodRef.current = mood; capyRef.current?.setMood(mood); }, [mood]);
 
   useEffect(() => {
     const element = host.current; if (!element) return;
@@ -510,19 +342,15 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     tree(decor, -2.65, -1.35, 1.05, world === 1); tree(decor, 2.55, -1.75, .65, world === 1);
     for (let i = 0; i < 9; i++) {
       const a = i * 2.39, bx = Math.sin(a) * 2.75, bz = Math.cos(a) * 2.15;
-      if (Math.hypot(bx - (-1.72), bz - 1.8) > 0.92) ball(decor, .26, ['#a9bf80','#b5c98d'][i % 2], bx, .25, bz, [1.3, .85, 1]);
+      if (Math.hypot(bx - CAPY_X, bz - CAPY_Z) > 0.92) ball(decor, .26, ['#a9bf80','#b5c98d'][i % 2], bx, .25, bz, [1.3, .85, 1]);
     }
     for (let i = 0; i < 13; i++) {
       const a = i * 2.4, fx = Math.sin(a) * (2.6 + (i % 2) * .2), fz = Math.cos(a) * 2.3;
-      if (Math.hypot(fx - (-1.72), fz - 1.8) > 0.88) flower(decor, fx, .17, fz, ['#f7dd9b','#e9b7c2','#f4e4cc'][i % 3], .6 + i % 3 * .18);
+      if (Math.hypot(fx - CAPY_X, fz - CAPY_Z) > 0.88) flower(decor, fx, .17, fz, ['#f7dd9b','#e9b7c2','#f4e4cc'][i % 3], .6 + i % 3 * .18);
     }
     for (let i = 0; i < 4; i++) { const stone = cylinder(decor, .25, .06, '#f1e0bb', .05 + Math.sin(i * .8) * .2, .17, 1.65 + i * .36); stone.scale.set(1.25, 1, .67); }
     const pond = cylinder(decor, .63, .05, '#e6d3a9', 2.5, .17, 1.1); pond.scale.set(1, 1, 1.45);
     const water = cylinder(decor, .52, .055, C.water, 2.5, .2, 1.1); water.scale.set(1, 1, 1.45);
-
-    // Build the cute scholar Capybara sitting and reading with glasses (hidden in World 3 where the giant Lego Capybara takes center stage, matching the concept art)
-    const capyRefs = capy(decor, -1.72, 1.8, .90, world > 0);
-    capyRefs.root.visible = world !== 2;
 
     const parts = world === 0 ? buildCottage(root, pieces) : world === 1 ? buildTree(root, pieces) : buildLego(root, pieces);
     let pieceExtent = 1;
@@ -543,13 +371,26 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     const heartGeo = createHeartGeometry();
     const heartMat = new THREE.MeshStandardMaterial({ color: '#f26d85', roughness: .4, emissive: '#f26d85', emissiveIntensity: 0.2 });
     const hearts: FloatingHeart[] = [];
-    let bounceStart = 0;
+    let capy: CapyActor | null = null;
+    const pokes: number[] = [];
 
     function triggerCapyReaction() {
-      bounceStart = performance.now();
-      const cx = world === 2 ? 0 : -1.72;
+      const now = performance.now();
+      while (pokes.length && now - pokes[0] > 3000) pokes.shift();
+      pokes.push(now);
+      const grumpy = !!capy && pokes.length >= 4;
+      if (grumpy) pokes.length = 0;
+      const reaction: CapyMood = grumpy ? 'Grumpy' : 'Surprised';
+      capy?.react(reaction);
+      callbacks.current.onCapyPet?.(reaction);
+      if (!grumpy) floatHearts();
+      render();
+    }
+
+    function floatHearts() {
+      const cx = world === 2 ? 0 : CAPY_X;
       const cy = world === 2 ? 2.5 : 1.15;
-      const cz = world === 2 ? 0.8 : 1.8;
+      const cz = world === 2 ? 0.8 : CAPY_Z;
       for (let i = 0; i < 4; i++) {
         const hMesh = new THREE.Mesh(heartGeo, heartMat);
         hMesh.position.set(cx + (Math.random() - 0.5) * 0.45, cy + i * 0.08, cz + (Math.random() - 0.5) * 0.45);
@@ -565,8 +406,6 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
           vz: (Math.random() - 0.5) * 0.3,
         });
       }
-      onCapyPet?.();
-      render();
     }
 
     const raycaster = new THREE.Raycaster();
@@ -603,12 +442,23 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
       renderer.domElement.addEventListener('pointermove', onPointerMove);
     }
 
-    let frame = 0; let disposed = false; let visible = true; let animationStart = 0;
+    let frame = 0; let disposed = false; let visible = true; let animationStart = 0; let lastTime = 0;
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const still = miniature || reducedMotion;
     const animated = animatePiece && pieces > 0 && !reducedMotion ? parts[Math.min(20, pieces - 1)] : null;
+    // Cottage piece 20 is Capy's crown; from then on, and in every later world, Capy wears it.
+    // While that piece is dropping in, it stays a separate piece until it lands.
+    const crowned = world > 0 || pieces >= 20;
+    let crownLanded = !(world === 0 && animated === parts[19]);
+    function wearCrown() {
+      if (!capy || !crowned || !crownLanded) return;
+      capy.setCrowned(true);
+      if (world === 0) parts[19].visible = false;
+    }
 
     const draw = (time = performance.now()) => {
-      frame = 0; if (disposed || !visible) return;
+      frame = 0; if (disposed || !visible) { lastTime = 0; return; }
+      const delta = lastTime ? Math.min(.1, (time - lastTime) / 1000) : 0; lastTime = time;
       controls.update();
 
       if (animated) {
@@ -616,39 +466,10 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
         const progress = Math.min(1, (time - animationStart) / 850);
         animated.position.y = (1 - Math.pow(progress, .4)) * 3.5;
         if (progress < 1) frame = requestAnimationFrame(draw);
+        else if (!crownLanded) { crownLanded = true; wearCrown(); }
       }
 
-      if (bounceStart > 0) {
-        const elapsed = (time - bounceStart) / 1000;
-        if (elapsed < 0.65) {
-          const bounce = Math.sin(elapsed * Math.PI / 0.65) * Math.sin(elapsed * 12) * 0.20;
-          capyRefs.root.position.y = 0.14 + Math.max(0, bounce);
-          capyRefs.head.rotation.x = Math.sin(elapsed * 12) * 0.12;
-          capyRefs.leftEar.rotation.z = -0.32 + Math.sin(elapsed * 16) * 0.22;
-          capyRefs.rightEar.rotation.z = 0.32 - Math.sin(elapsed * 16) * 0.22;
-          frame = requestAnimationFrame(draw);
-        } else {
-          capyRefs.root.position.y = 0.14;
-          capyRefs.head.rotation.x = 0;
-          capyRefs.leftEar.rotation.z = -0.32;
-          capyRefs.rightEar.rotation.z = 0.32;
-          bounceStart = 0;
-        }
-      }
-
-      if (!miniature && !reducedMotion && bounceStart === 0 && capyRefs.root.visible) {
-        const idle = Math.sin(time * 0.0022) * 0.012;
-        capyRefs.body.position.y = idle;
-        capyRefs.head.rotation.x = Math.sin(time * 0.0016) * 0.025;
-        capyRefs.book.rotation.x = -0.38 + Math.sin(time * 0.0022) * 0.02;
-
-        const twitch = (time % 3800) / 3800;
-        if (twitch > 0.88 && twitch < 0.96) {
-          const w = Math.sin((twitch - 0.88) / 0.08 * Math.PI * 4) * 0.15;
-          capyRefs.leftEar.rotation.z = -0.32 + w;
-          capyRefs.rightEar.rotation.z = 0.32 - w;
-        }
-      }
+      capy?.update(delta);
 
       if (hearts.length > 0) {
         for (let i = hearts.length - 1; i >= 0; i--) {
@@ -742,10 +563,30 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     const onLost = (e: Event) => { e.preventDefault(); setFailed(true); };
     renderer.domElement.addEventListener('webglcontextlost', onLost);
 
+    // The 3D Capy (public/models/capy.glb). The Lego world is itself a giant capybara, so Capy steps aside there.
+    function attachCapy(gltf: GLTF, popIn: boolean) {
+      if (disposed) return;
+      capy = createCapy(gltf, { mood: moodRef.current, still, popIn, onPose: render });
+      capy.root.position.set(CAPY_X, .13, CAPY_Z); capy.root.rotation.y = CAPY_TURN; capy.root.scale.setScalar(CAPY_SCALE);
+      decor.add(capy.root);
+      capyRef.current = capy;
+      wearCrown();
+      callbacks.current.onCapyReady?.();
+      render();
+    }
+    if (world !== 2 && !rewardPiece) {
+      const cached = loadedCapyModel();
+      if (cached) attachCapy(cached, false);
+      else loadCapyModel().then(gltf => attachCapy(gltf, true), error => console.warn('Capy could not load; showing the world without Capy.', error));
+    }
+
     resize();
 
     return () => {
       disposed = true; applyAppearance.current = () => {}; cancelAnimationFrame(frame);
+      // Detach Capy before disposing scene geometry: its geometry and materials are shared with other scenes through the model cache.
+      if (capyRef.current === capy) capyRef.current = null;
+      capy?.dispose(); capy = null;
       observer.disconnect(); intersection.disconnect(); controls.dispose(); floorMaterial.dispose();
       heartGeo.dispose(); heartMat.dispose();
       if (!miniature) {
@@ -770,7 +611,7 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [world, pieces, rainy, animatePiece, miniature, rewardPiece, onCapyPet]);
+  }, [world, pieces, rainy, animatePiece, miniature, rewardPiece]);
 
   useEffect(() => { applyAppearance.current(resolvedTheme === 'dark'); }, [resolvedTheme]);
 
