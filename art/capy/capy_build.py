@@ -7,6 +7,8 @@ Conventions: 1 unit = 1 m, character faces -Y, Z up, sitting height ~1.0 m witho
 `.L` is the character's left (+X, the viewer's right in front view).
 Every visible part is rigidly weighted to one bone. Expression variants and props are
 switched by bone scale (0 = hidden), which exports to glTF and plays in three.js.
+The watering can exists twice: skinned to the `can` bone for the clips that hold it, and as the
+static `WateringCan` node (hidden in renders) that the app places in the world.
 """
 import math
 import os
@@ -66,6 +68,11 @@ def oriented(y_dir, up=UP):
     for i in range(3):
         m[i][0], m[i][1], m[i][2] = x[i], y[i], z[i]
     return m
+
+
+def aim_z(z_dir):
+    """Rotation matrix taking local +Z onto z_dir (shortest arc)."""
+    return Vector((0, 0, 1)).rotation_difference(Vector(z_dir)).to_matrix().to_4x4()
 
 
 # ============================================================================ body parts
@@ -518,6 +525,64 @@ def build_props(acc, surf_head, eye_frames):
             C["question"], "M_Gloss", "question", part="question")
     bone("question", pq + Vector((0, 0, -0.06)), pq + Vector((0, 0, 0.06)), "head", up=(0, -1, 0))
 
+    # watering can (world activities): the grip on its handle sits in the right paw
+    paw = BONES["arm.R"]["tail"]
+    for bm, cname, mat in can_parts(paw):
+        acc.add(bm, C[cname], mat, "can", part="can")
+    bone("can", paw, paw + Vector((0, 0, -0.10)), "arm.R", up=(0, -1, 0))
+
+
+def can_parts(grip):
+    """Watering-can pieces [(bmesh, colour, material)] with can-bone space (capy_pose.CAN) placed at `grip`.
+    Body, handle and spout reuse the scarf blue, the trims the scarf white, the rose the crown gold."""
+    from capy_pose import CAN, CAN_BOTTOM, CAN_HANDLE_Y, SPOUT_BASE, SPOUT_DIR, SPOUT_TIP
+    r, h = CAN["r"], CAN["h"]
+    grip = Vector(grip)
+    base = Matrix.Translation(grip + CAN_BOTTOM)
+    prof = [(0, 0), (r * 0.80, 0), (r * 0.94, 0.004), (r, 0.016), (r, h - 0.016), (r * 0.95, h - 0.006),
+            (r * 0.80, h - 0.001), (r * 0.45, h + 0.002), (0, h + 0.003)]
+    parts = [(G.transform(G.lathe(prof, segs=24), base), "scarf_a", "M_Gloss")]
+    band = G.torus_segment(r + 0.0008, 0.0062, 0.0, math.tau, segs=24, rsegs=6)
+    parts.append((G.transform(band, base @ Matrix.Translation((0, 0, h * 0.40))), "scarf_b", "M_Toy"))
+    rim = G.torus_segment(r * 0.80, 0.0060, 0.0, math.tau, segs=24, rsegs=6)
+    parts.append((G.transform(rim, base @ Matrix.Translation((0, 0, h - 0.002))), "scarf_b", "M_Toy"))
+    spout = G.cylinder(CAN["spout_r"][0], CAN["spout_len"], segs=10, top_radius=CAN["spout_r"][1])
+    parts.append((G.transform(spout, Matrix.Translation(grip + SPOUT_BASE) @ aim_z(SPOUT_DIR)), "scarf_a", "M_Gloss"))
+    rose = G.cylinder(CAN["rose_r"][0], CAN["rose_len"], segs=14, top_radius=CAN["rose_r"][1])
+    parts.append((G.transform(rose, Matrix.Translation(grip + SPOUT_TIP - SPOUT_DIR * 0.004) @ aim_z(SPOUT_DIR)),
+                  "gold", "M_Gold"))
+    pts = []
+    for k in range(15):                      # D handle on the back, from near the top rim to the lower back
+        a = math.radians(100 - 195 * k / 14)
+        pts.append(base @ Vector((0.0, CAN_HANDLE_Y + CAN["handle_ry"] * math.cos(a),
+                                  CAN["handle_cz"] + CAN["handle_rz"] * math.sin(a))))
+    parts.append((G.tube(pts, CAN["handle_r"], segs=8, plane_normal=Vector((1, 0, 0))), "scarf_a", "M_Gloss"))
+    return parts
+
+
+def build_static_can(coll):
+    """`WateringCan`: an unskinned copy of the can that the app lifts out of each Capy and places in the world.
+    The node is an identity-transform empty with its origin at the can's bottom centre; the mesh hangs under
+    it, so mesh quantization (gltf-transform meshopt) parks its dequantization transform on the child."""
+    from capy_pose import CAN_BOTTOM
+    acc = G.Accumulator()
+    for bm, cname, mat in can_parts(-CAN_BOTTOM):
+        acc.add(bm, C[cname], mat, "WateringCan", part="can")
+    acc.bm.verts.layers.deform.remove(acc.dl)      # no bone weights: never skinned
+    me = bpy.data.meshes.new("WateringCanMesh")
+    acc.bm.to_mesh(me)
+    acc.bm.free()
+    for name in acc.materials:
+        me.materials.append(bpy.data.materials[name])
+    holder = bpy.data.objects.new("WateringCan", None)
+    holder.empty_display_size = 0.1
+    ob = bpy.data.objects.new("WateringCanMesh", me)
+    ob.parent = holder
+    for o in (holder, ob):
+        coll.objects.link(o)
+        o.hide_render = True    # parked at the origin, inside Capy: only the app shows it
+    return ob
+
 
 # ============================================================================ materials
 def blush_texture(path):
@@ -645,9 +710,11 @@ def build(out_path):
     missing = [g for g in acc.groups if g not in BONES]
     if missing:
         raise RuntimeError(f"vertex groups without bones: {missing}")
+    can = build_static_can(coll)
     stats = {"verts": len(me.vertices), "faces": len(me.polygons),
              "tris": sum(len(p.vertices) - 2 for p in me.polygons), "bones": len(BONES),
-             "materials": acc.materials, "parts": acc.parts}
+             "materials": acc.materials, "parts": acc.parts,
+             "static_can_tris": sum(len(p.vertices) - 2 for p in can.data.polygons)}
     if out_path:
         bpy.context.preferences.filepaths.save_version = 0   # no .blend1 backup
         bpy.ops.wm.save_as_mainfile(filepath=out_path)

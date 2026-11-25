@@ -179,11 +179,34 @@ def cylinder(radius, depth, segs=24, top_radius=None, cap=True):
     return bm
 
 
-def torus_segment(R, r, a0, a1, segs=8, rsegs=12, rx_scale=1.0, ry_scale=1.0):
-    """Partial torus around Z (angles in radians), tube radius r. Open ends."""
+def lathe(profile, segs=24, sharp_angle=50):
+    """Closed surface of revolution around Z from (radius, z) pairs that start and end on the axis."""
     bm = bmesh.new()
     rings = []
-    for i in range(segs + 1):
+    for r, z in profile:
+        if r < 1e-6:
+            rings.append([bm.verts.new((0.0, 0.0, z))])
+        else:
+            rings.append([bm.verts.new((r * math.cos(TAU * j / segs), r * math.sin(TAU * j / segs), z)) for j in range(segs)])
+    for a, b in zip(rings[:-1], rings[1:]):
+        for j in range(segs):
+            k = (j + 1) % segs
+            if len(a) == 1:
+                bm.faces.new((a[0], b[k], b[j]))
+            elif len(b) == 1:
+                bm.faces.new((a[j], a[k], b[0]))
+            else:
+                bm.faces.new((a[j], a[k], b[k], b[j]))
+    _finish(bm, sharp_angle=sharp_angle)
+    return bm
+
+
+def torus_segment(R, r, a0, a1, segs=8, rsegs=12, rx_scale=1.0, ry_scale=1.0):
+    """Partial torus around Z (angles in radians), tube radius r. Open ends; a full turn is closed."""
+    bm = bmesh.new()
+    rings = []
+    full = abs((a1 - a0) - TAU) < 1e-9
+    for i in range(segs if full else segs + 1):
         a = a0 + (a1 - a0) * i / segs
         cx, cy = R * math.cos(a) * rx_scale, R * math.sin(a) * ry_scale
         out = Vector((math.cos(a), math.sin(a), 0))
@@ -193,7 +216,7 @@ def torus_segment(R, r, a0, a1, segs=8, rsegs=12, rx_scale=1.0, ry_scale=1.0):
             p = Vector((cx, cy, 0)) + out * (r * math.cos(b)) + Vector((0, 0, r * math.sin(b)))
             ring.append(bm.verts.new(p))
         rings.append(ring)
-    for ra, rb in zip(rings[:-1], rings[1:]):
+    for ra, rb in zip(rings, rings[1:] + rings[:1]) if full else zip(rings[:-1], rings[1:]):
         for j in range(rsegs):
             bm.faces.new((ra[j], rb[j], rb[(j + 1) % rsegs], ra[(j + 1) % rsegs]))
     _finish(bm)

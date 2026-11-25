@@ -1,13 +1,19 @@
-"""Capy emotional states -> looping animation clips (one Action per state).
+"""Capy clips -> one Action each: 12 emotional states and 7 world activities.
 
-Every state is a pure function of (t in [0, 1), frame, frame_count) that returns the
+Every clip is a pure function of (t in [0, 1), frame, frame_count) that returns the
 high-level controls from capy_pose. Loops use whole-number cycles, so frame 0 and the
 last frame match. Each clip keys EVERY bone, so switching clips in three.js always
 resets visibility toggles and props.
+
+World activities (Walk, WalkCan, TurnStep, Water, Sniff, Wave, PickUp) are authored in
+place: the app moves and turns Capy, the clip moves the body. Walk and TurnStep roll each
+stance foot over ground that moves at exactly the app's pace, so planted feet never slide.
 """
 import math
 
-from capy_pose import controls
+from mathutils import Quaternion, Vector
+
+from capy_pose import CAN_BOTTOM, ROSE_FACE, SPOUT_DIR, controls, eul
 
 FPS = 24
 TAU = math.tau
@@ -332,6 +338,413 @@ def confused(t, f, n):
     return c
 
 
+# =========================================================================== world activities
+_RIG = {}
+
+
+def use_rig(rig):
+    """Bind the CapyRig whose rest pose the world clips aim at (arm reach, held can, pour, feet)."""
+    _RIG.clear()
+    _RIG["rig"] = rig
+
+
+def capy_rig():
+    if "rig" not in _RIG:
+        import bpy
+        from capy_pose import CapyRig
+        use_rig(CapyRig(bpy.data.objects["RIG_Capy"]))
+    return _RIG["rig"]
+
+
+def deg(q):
+    """Armature-space Euler degrees of a quaternion, in the order eul() applies them."""
+    return tuple(math.degrees(a) for a in q.to_euler("XYZ"))
+
+
+def seg(f, a, b):
+    """Eased 0 -> 1 over frames a..b."""
+    return ease((f - a) / (b - a))
+
+
+def hermite(p0, p1, m0, m1, s):
+    s2, s3 = s * s, s * s * s
+    return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * m0 + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * m1
+
+
+def arm_aim(target, side="R", loc=(0, 0, 0), body_rot=(0, 0, 0), root_loc=(0, 0, 0)):
+    """arm_<side> rotation that points the paw centre at model-space `target` while the body is turned by
+    body_rot and the root moved by root_loc; `loc` is the arm's own offset. Returns (euler, reach error)."""
+    r = capy_rig()
+    pivot = r.head["body"]
+    p = eul(*body_rot).inverted() @ (Vector(target) - Vector(root_loc) - pivot) + pivot
+    name = f"arm.{side}"
+    h = r.head[name] + Vector(loc)
+    d0 = r.tail[name] - r.head[name]
+    return deg(d0.rotation_difference(p - h)), (p - h).length - d0.length
+
+
+def held(body_rot, arm_rot, want=(0, 0, 0)):
+    """Rotation of the can (child of arm.R) that gives it the model-space orientation eul(*want)."""
+    return deg((eul(*body_rot) @ eul(*arm_rot)).inverted() @ eul(*want))
+
+
+# ---------------------------------------------------------------- walking
+# One cycle = two steps. Phase ph: 0 = left heel strike, 0.5 = right heel strike. The stance foot's
+# ellipsoid sole rolls heel -> flat -> toe without slipping on ground that moves back at the walk speed;
+# the swing foot leaves and lands matching that speed. Arms swing against the legs from the shoulder.
+WALK = dict(cycle=18, cycles=2, duty=0.58, S=0.40, lift=0.060, stand=0.030, bob=0.022, hs=-14.0, to=26.0,
+            flat=(0.16, 0.62), roll=5.0, sway=0.016, yaw=5.0, lean=5.0, arm=26.0, arm_back=18.0, arm_base=-10.0,
+            arm_out=10.0, arm_roll=10.0, arm_lag=0.04, head_keep=0.6, circ=0.012)
+FOOT = dict(b=0.12, c=0.062, splay=14.0, centre=(0.17, -0.25, 0.055))   # sole ellipsoid of the capy_build feet
+GROUND = FOOT["centre"][2] - FOOT["c"]                                   # rest sole height (-0.007)
+CARRY_PAW = Vector((-0.40, -0.19, 0.33))     # right paw while carrying: beside the hip, can clear of the feet
+CARRY_LOC = (-0.03, -0.01, 0.0)
+
+
+def walk_speed():
+    """Model units per second the app moves the root at timeScale 1 (S per 18-frame cycle)."""
+    return WALK["S"] / (WALK["cycle"] / FPS)
+
+
+def carry_arm():
+    if "carry" not in _RIG:
+        _RIG["carry"] = arm_aim(CARRY_PAW, loc=CARRY_LOC)[0]
+    return _RIG["carry"]
+
+
+def roll_h(th):
+    """Height of the foot ellipsoid's centre above its contact point at pitch th (rad)."""
+    b, c = FOOT["b"], FOOT["c"]
+    return math.sqrt((b * math.sin(th)) ** 2 + (c * math.cos(th)) ** 2)
+
+
+def roll_travel(th, n=24):
+    """Centre travel along the foot when it rolls from flat to pitch th without slipping (Simpson on roll_h)."""
+    if abs(th) < 1e-9:
+        return 0.0
+    hs = th / n
+    acc = roll_h(0.0) + roll_h(th)
+    for i in range(1, n):
+        acc += (4 if i % 2 else 2) * roll_h(i * hs)
+    return acc * hs / 3.0
+
+
+def foot_axes(s):
+    a = math.radians(s * FOOT["splay"])
+    return Vector((math.sin(a), -math.cos(a), 0.0)), Quaternion((0, 0, 1), a)   # forward along the foot, splay
+
+
+def pitch_q(s, th_deg):
+    """Pitch about the foot's own lateral axis (+ = toe down), armature space."""
+    _, rz = foot_axes(s)
+    return rz @ Quaternion((1, 0, 0), math.radians(th_deg)) @ rz.inverted()
+
+
+def stance_pitch(sp):
+    W = WALK
+    f0, f1 = W["flat"]
+    if sp < f0:
+        return W["hs"] * (1 - ease(sp / f0))                             # heel strike -> foot flat
+    if sp > f1:
+        return W["to"] * ease((sp - f1) / (1 - f1)) ** 1.15              # heel off -> rolls over the toe
+    return 0.0
+
+
+def swing_pitch(sw):
+    W = WALK
+    if sw < 0.15:
+        return W["to"] + 8.0 * ease(sw / 0.15)                           # toe flicks back after lift-off
+    if sw < 0.80:
+        return (W["to"] + 8.0) + (W["hs"] - W["to"] - 8.0) * ease((sw - 0.15) / 0.65)
+    return W["hs"]                                                        # toe up, ready for heel strike
+
+
+def foot_pose(p, s):
+    """Foot at gait phase p (0 = heel strike) for side s (+1 = L): (bone loc, bone quat) in armature space."""
+    W = WALK
+    D = W["duty"]
+    A_ = W["S"] * D / 2.0
+    u, _ = foot_axes(s)
+    cr = Vector((s * FOOT["centre"][0], FOOT["centre"][1], FOOT["centre"][2]))
+    head = capy_rig().head[f"foot.{'L' if s > 0 else 'R'}"]
+
+    def stance_centre(sp):
+        th = stance_pitch(sp)
+        r = math.radians(th)
+        return cr + Vector((0.0, -A_ + 2 * A_ * sp, 0.0)) + u * roll_travel(r) + Vector((0, 0, roll_h(r) - FOOT["c"])), th
+
+    if p < D:
+        ctr, th = stance_centre(p / D)
+    else:
+        sw = (p - D) / (1 - D)
+        c0, _ = stance_centre(1.0)
+        c1, _ = stance_centre(0.0)
+        g = 2 * A_ / D * (1 - D)                                          # ground travel per unit of swing phase
+        y = hermite(c0.y, c1.y, 0.45 * g, 0.55 * g, sw)                  # lifts off and lands moving back
+        x = c0.x + (c1.x - c0.x) * ease(sw) + s * W["circ"] * math.sin(math.pi * sw)   # slight circumduction
+        th = swing_pitch(sw)
+        z = cr.z + roll_h(math.radians(th)) - FOOT["c"] + W["lift"] * math.sin(math.pi * min(1.0, sw ** 0.85)) ** 0.9
+        ctr = Vector((x, y, z))
+    q = pitch_q(s, th)
+    return ctr + q @ (head - cr) - head, q
+
+
+def bob_shape(ph):
+    """0 at the down pose (just after each contact), 1 at the up pose (passing). Twice per cycle."""
+    uu = ((2 * ph) % 1.0 - 0.10) % 1.0
+    return ease(uu / 0.45) if uu < 0.45 else 1.0 - ease((uu - 0.45) / 0.55)
+
+
+def walk(t, f, n, carry=False):
+    W = WALK
+    ph = (t * W["cycles"]) % 1.0
+    b = bob_shape(ph)
+    blag = bob_shape(ph - 0.08)                       # follow-through: head nod, beret, can
+    elag = bob_shape(ph - 0.11)                       # ears lag a little more
+    side = math.sin(TAU * (ph - 0.04))                # +1 = weight over the left foot (its mid-stance)
+    rlag = math.sin(TAU * (ph - 0.14))
+    roll = W["roll"] * (0.6 if carry else 1.0) * side + (1.5 if carry else 0.0)   # carrying: lean away from the can
+    yaw = -W["yaw"] * math.cos(TAU * ph)              # left hip forward with the left foot
+    k = (1.0 - b) ** 2                                # squash peaks at the down pose
+    sq = squash((1 + 0.012 * k, 1 - 0.024 * k, 1 + 0.012 * k))
+    root = Vector((W["sway"] * side * (0.7 if carry else 1.0), 0.0, W["stand"] + W["bob"] * b))
+    feet = {}
+    for sd, s, p in (("L", 1.0, ph), ("R", -1.0, (ph + 0.5) % 1.0)):
+        loc, q = foot_pose(p, s)
+        feet[sd] = (tuple(loc - root), deg(q))
+    body_rot = (W["lean"] + 1.0 * k, roll, yaw)
+    # head: counter-rotates the body so the eyes stay level, keeping 40% of the roll and a lagging nod
+    head_w = eul(1.0 + 1.6 * (1 - blag), roll * (1 - W["head_keep"]), yaw * 0.15)
+    head_rot = deg(eul(*body_rot).inverted() @ head_w)
+    # arms: left arm forward with the right foot, eased extremes, paws drag a little behind
+    sw = math.cos(TAU * (ph - W["arm_lag"]))
+    e = math.tanh(1.6 * sw) / math.tanh(1.6)          # +1 = left arm back
+    zf = 4.0 * math.sin(TAU * (ph - W["arm_lag"]))
+    aL = W["arm"] * e if e < 0 else W["arm_back"] * e         # swings further forward than back (belly)
+    aR = -W["arm"] * e if e > 0 else -W["arm_back"] * e
+    arm_L = (W["arm_base"] + aL, -(W["arm_out"] + W["arm_roll"] * max(0.0, e)), zf)
+    arm_R = (W["arm_base"] + aR, W["arm_out"] + W["arm_roll"] * max(0.0, -e), zf)
+    arm_R_loc = (0.0, 0.0, 0.0)
+    props = {"beret": {"scale": 1.0, "loc": (0, 0, 0.004 * (blag - 0.5))}}
+    if carry:                                         # right arm holds the can; it cancels 60% of the bob
+        base = carry_arm()
+        arm_R = (base[0] + 1.5 * (blag - 0.5), base[1], base[2])
+        arm_R_loc = (CARRY_LOC[0], CARRY_LOC[1], CARRY_LOC[2] - 0.6 * W["bob"] * (b - 0.5))
+        props["can"] = {"scale": 1.0, "rot": held(body_rot, arm_R, (2.0 * (blag - 0.5), 0.0, 0.0))}
+    bl = blink(f, (26,))
+    ear = 5 + 7 * (1 - 2 * elag)
+    c = controls(
+        root_loc=tuple(root), body_rot=body_rot,
+        torso_scale=sq["torso_scale"], head_loc=sq["head_loc"], head_rot=head_rot,
+        ear_L=(0, ear - 1.5 * rlag, 0), ear_R=(0, -ear - 1.5 * rlag, 0),
+        eyes=("open", "open"), blink=(bl, bl), look=(0.0, 0.0),
+        brow_L=(4, 0.004), brow_R=(4, 0.004), mouth="smile", blush=1.0,
+        arm_L=arm_L, arm_R=arm_R, arm_R_loc=arm_R_loc,
+        foot_L=feet["L"][1], foot_L_loc=feet["L"][0], foot_R=feet["R"][1], foot_R_loc=feet["R"][0],
+        props=props,
+    )
+    return merge_lift(c, sq["arm_lift"])
+
+
+def walk_can(t, f, n):
+    return walk(t, f, n, carry=True)
+
+
+# ---------------------------------------------------------------- turning on the spot
+TURN = dict(cycle=18, cycles=2, duty=0.58, theta=60.0, lift=0.045, stand=0.012, bob=0.012, roll=3.0, sway=0.010, arm=8.0)
+
+
+def turn_rate():
+    """Degrees per second of root yaw at timeScale 1: a left (counter-clockwise from above) turn."""
+    return TURN["theta"] / (TURN["cycle"] / FPS)
+
+
+def turn_step(t, f, n):
+    """Small stepping turn: the stance foot counter-rotates about the root axis at exactly the root's yaw rate,
+    the swing foot steps round with a symmetric lift, so the clip also works reversed (right turn)."""
+    T_ = TURN
+    ph = (t * T_["cycles"]) % 1.0
+    D = T_["duty"]
+    phi_span = T_["theta"] * D
+    b = 0.5 * (1 - math.cos(2 * TAU * (ph - 0.04)))   # low in double support, high at mid-stance
+    side = math.sin(TAU * (ph - 0.04))
+    root = Vector((T_["sway"] * side, 0.0, T_["stand"] + T_["bob"] * b))
+    feet = {}
+    for sd, p in (("L", ph), ("R", (ph + 0.5) % 1.0)):
+        if p < D:
+            phi, z = phi_span / 2 - phi_span * (p / D), 0.0
+        else:
+            sw = (p - D) / (1 - D)
+            phi, z = -phi_span / 2 + phi_span * ease(sw), T_["lift"] * math.sin(math.pi * sw)
+        q = Quaternion((0, 0, 1), math.radians(phi))
+        head = capy_rig().head[f"foot.{sd}"]
+        feet[sd] = (tuple(q @ head - head + Vector((0, 0, z)) - root), (0.0, 0.0, phi))
+    roll = T_["roll"] * side
+    body_rot = (2.0, roll, 0.0)
+    head_rot = deg(eul(*body_rot).inverted() @ eul(1.0, roll * 0.4, 0.0))
+    sw_a = T_["arm"] * math.cos(TAU * ph)
+    bl = blink(f, (20,))
+    sq = squash((1 + 0.008 * (1 - b), 1 - 0.016 * (1 - b), 1 + 0.008 * (1 - b)))
+    c = controls(
+        root_loc=tuple(root), body_rot=body_rot, torso_scale=sq["torso_scale"], head_loc=sq["head_loc"],
+        head_rot=head_rot, ear_L=(0, 6 - 3 * b, 0), ear_R=(0, -6 + 3 * b, 0),
+        eyes=("open", "open"), blink=(bl, bl), brow_L=(4, 0.004), brow_R=(4, 0.004), mouth="smile", blush=1.0,
+        arm_L=(-10 + sw_a, -10, 0), arm_R=(-10 - sw_a, 10, 0),
+        foot_L=feet["L"][1], foot_L_loc=feet["L"][0], foot_R=feet["R"][1], foot_R_loc=feet["R"][0],
+        props={"beret": 1.0},
+    )
+    return merge_lift(c, sq["arm_lift"])
+
+
+# ---------------------------------------------------------------- watering (loop): two pour pulses, drops reused
+WATER = dict(paw=Vector((-0.40, -0.30, 0.40)), loc=(-0.03, -0.03, 0.0), tilt=50.0, body=(5.0, -2.0, -10.0))
+DROP = dict(period=16, life=13, g=2.6, v0=0.30, scale=1.25, spread=(-0.018, 0.0, 0.018))
+
+
+def water_pose(t):
+    pulse = math.sin(TAU * 2 * t)                     # two little "sprinkle" shakes per loop
+    br = math.sin(TAU * t)
+    bx, by, bz = WATER["body"]
+    body_rot = (bx + 0.8 * br, by, bz)
+    arm_R, _ = arm_aim(WATER["paw"], loc=WATER["loc"], body_rot=WATER["body"])
+    arm_R = (arm_R[0] + 1.5 * pulse, arm_R[1], arm_R[2])
+    tw = bump(t, 0.7, 0.05)
+    return controls(
+        body_rot=body_rot, torso_scale=(1, 1 + 0.008 * br, 1),
+        head_rot=(13 + 1.5 * br, -6, -10), ear_L=(0, 8 - 14 * tw, 0), ear_R=(0, -8, 0),
+        eyes=("happy", "happy"), mouth="smile", blush=1.15, brow_L=(4, 0.006), brow_R=(4, 0.006),
+        arm_L=(-24 + 2 * br, 0, -10), arm_R=arm_R, arm_R_loc=WATER["loc"],
+        props={"beret": 1.0, "can": {"scale": 1.0, "rot": held(body_rot, arm_R, (WATER["tilt"] + 5.0 * pulse, 0, -14.0))}},
+    )
+
+
+def rose_at(t):
+    """Model-space centre and direction of the can's sprinkler face in the Water pose at loop time t."""
+    r = capy_rig()
+    M = r.fk(r.solve(water_pose(t % 1.0)))
+    grip = r.head["can"]
+    p = r.carried(M, "can", grip + ROSE_FACE)
+    return p, (r.carried(M, "can", grip + ROSE_FACE + SPOUT_DIR) - p).normalized()
+
+
+def drop_state(f, n):
+    """drop1-3 (children of root) leave the rose and fall to the ground, where they splat.
+    Returns (props, [model-space landing points this frame])."""
+    out, landed = {}, []
+    per, life = DROP["period"], DROP["life"]
+    for i in range(3):
+        name = f"drop{i + 1}"
+        age = (f + i * per / 3.0) % per
+        if age > life:
+            out[name] = 0.0
+            continue
+        p0, d = rose_at((f - age) / n)
+        dt = age / FPS
+        pos = p0 + d * DROP["v0"] * dt + Vector((DROP["spread"][i], 0, -0.5 * DROP["g"] * dt * dt))
+        sc = DROP["scale"] * min(1.0, 0.35 + age / 2.0)
+        scale = (sc, sc, sc)
+        if pos.z < 0.012:
+            pos.z = 0.012
+            scale = (sc * 1.5, sc * 0.45, sc * 1.5)
+            landed.append(pos.copy())
+        out[name] = {"scale": scale, "loc": tuple(pos - capy_rig().head[name])}
+    return out, landed
+
+
+def water(t, f, n):
+    c = water_pose(t)
+    c["props"].update(drop_state(f, n)[0])
+    return c
+
+
+# ---------------------------------------------------------------- one-shots (start and end near Calm)
+def wave_hello(t, f, n):
+    """Little hop, then the left paw waves beside the cheek (the arm cannot reach over the head)."""
+    antic = seg(f, 0, 3) * (1 - seg(f, 3, 6))
+    q = (f - 4) / 7.0
+    air = 4 * q * (1 - q) if 0 < q < 1 else 0.0
+    land = seg(f, 10, 12) * (1 - seg(f, 12, 16))
+    up = seg(f, 9, 15) * (1 - seg(f, 34, 42))
+    wv = math.sin(TAU * (f - 15) / 7.0) * seg(f, 14, 17) * (1 - seg(f, 31, 35)) if 14 <= f <= 35 else 0.0
+    sq = squash((1 + 0.05 * antic + 0.05 * land - 0.03 * air, 1 - 0.07 * antic - 0.06 * land + 0.05 * air,
+                 1 + 0.05 * antic + 0.05 * land - 0.03 * air))
+    joy = 7 <= f < 38
+    c = controls(
+        root_loc=(0, 0, 0.055 * air), body_rot=(-2 * up, 2 * up, 0),
+        torso_scale=sq["torso_scale"], head_loc=sq["head_loc"],
+        head_rot=(-5 * up + 3 * antic, 9 * up, 2 * wv),
+        ear_L=(0, -10 * up + 6 * land, 0), ear_R=(0, 10 * up - 6 * land, 0),
+        eyes=("happy", "happy") if joy else ("open", "open"), mouth="open" if joy else "smile",
+        blush=1.0 + 0.3 * up, brow_L=(6 * up, 0.008 * up), brow_R=(6 * up, 0.008 * up),
+        arm_L=(-6 - 64 * up + 6 * wv, 80 * up + 14 * wv, 40 * up), arm_L_loc=(0.02 * up, -0.02 * up, 0.03 * up),
+        arm_R=(-6 - 6 * up, 4 * up, 0),
+        foot_L=(-8 * air, 0, 0), foot_R=(-8 * air, 0, 0),
+        props={"beret": {"scale": 1.0, "loc": (0, 0, 0.012 * air)}},
+    )
+    return merge_lift(c, sq["arm_lift"])
+
+
+def sniff(t, f, n):
+    """Lean in, sniff-nod at a flower head, eyes-closed bliss, back up."""
+    lean = seg(f, 2, 14) * (1 - seg(f, 46, 58))
+    sn = math.sin(TAU * (f - 14) / 5.0) * (seg(f, 14, 16) * (1 - seg(f, 30, 33))) if 14 <= f <= 33 else 0.0
+    bliss = seg(f, 31, 35) * (1 - seg(f, 46, 52))
+    shiver = math.sin(f * 2.4) * bliss * 1.4
+    eyes = "open" if f < 31 else "closed" if f < 47 else "happy" if f < 54 else "open"
+    rise = 0.026 * lean                                # keeps the belly out of the ground while leaning
+    return controls(
+        root_loc=(0, 0, rise), foot_L_loc=(0, 0, -rise), foot_R_loc=(0, 0, -rise),
+        body_rot=(13 * lean, shiver, 0), torso_scale=(1, 1 - 0.01 * lean, 1),
+        head_rot=(21 * lean + 2.2 * sn - 6 * bliss, 7 * bliss, 0),
+        ear_L=(-12 * lean, 4 + 14 * bliss, 0), ear_R=(-12 * lean, -4 - 14 * bliss, 0),
+        eyes=(eyes, eyes), look=(0.0, -0.006 * lean * (1 - bliss)),
+        brow_L=(5, 0.004 + 0.006 * bliss), brow_R=(5, 0.004 + 0.006 * bliss),
+        mouth="smile", mouth_scale=1.0 + 0.15 * bliss, blush=1.0 + 0.4 * bliss,
+        arm_L=(-6 - 16 * lean, 0, -6 * lean), arm_R=(-6 - 16 * lean, 0, 6 * lean),
+        props={"beret": 1.0},
+    )
+
+
+PICK = dict(grab=10, paw=Vector((-0.345, -0.335, -CAN_BOTTOM.z + 0.002)), lean=(20.0, -4.0, -8.0),
+            rise=0.040, loc=(-0.02, -0.03, -0.03), squash=(0.06, -0.12, 0.06))
+
+
+def pick_lift(down=1.0):
+    """Arm lift merge_lift adds at crouch amount `down` (the reach target pre-compensates it)."""
+    k = PICK["squash"]
+    return squash((1 + k[0] * down, 1 + k[1] * down, 1 + k[2] * down))["arm_lift"]
+
+
+def pickup(t, f, n):
+    """Crouch, take the can standing on the ground at the grab frame, lift it to the carry pose.
+    Played backwards it is PutDown: the can is set down and leaves the paw at the grab frame."""
+    down = seg(f, 0, 8) * (1 - seg(f, 13, 22))
+    lift = seg(f, 13, 22)
+    holding = f >= PICK["grab"]
+    lx, ly, lz = PICK["lean"]
+    body_rot = (lx * down, ly * down, lz * down)
+    rise = PICK["rise"] * down
+    k = PICK["squash"]
+    sq = squash((1 + k[0] * down, 1 + k[1] * down, 1 + k[2] * down))
+    # the reach is solved at the full crouch, so the can stands exactly on the ground at the grab frame
+    reach, _ = arm_aim(PICK["paw"] - Vector((0, 0, pick_lift())), loc=PICK["loc"],
+                       body_rot=PICK["lean"], root_loc=(0, 0, PICK["rise"]))
+    if not holding or lift == 0:
+        arm_R, loc = lerp((-6.0, 0.0, 0.0), reach, down), lerp((0.0, 0.0, 0.0), PICK["loc"], down)
+    else:
+        arm_R, loc = lerp(reach, carry_arm(), lift), lerp(PICK["loc"], CARRY_LOC, lift)
+    c = controls(
+        root_loc=(0, 0, rise), foot_L_loc=(0, 0, -rise), foot_R_loc=(0, 0, -rise),
+        body_rot=body_rot, torso_scale=sq["torso_scale"], head_loc=sq["head_loc"],
+        head_rot=(10 * down, 0, -8 * down), ear_L=(0, 6, 0), ear_R=(0, -6, 0),
+        eyes=("open", "open"), look=(0.0, -0.008 * down), mouth="smile",
+        brow_L=(3, 0.004), brow_R=(3, 0.004), blush=1.0,
+        arm_L=(-8 - 10 * down, 0, 0), arm_R=arm_R, arm_R_loc=loc,
+        props={"beret": 1.0, "can": {"scale": 1.0 if holding else 0.0, "rot": held(body_rot, arm_R)}},
+    )
+    return merge_lift(c, sq["arm_lift"])
+
+
 STATES = {
     # name: (fn, frames, loop, hero_t, streak meaning)
     "Calm": (calm, 96, True, 0.1),
@@ -348,9 +761,22 @@ STATES = {
     "Surprised": (surprised, 36, False, 10 / 35),
 }
 
+ACTIVITIES = {
+    # name: (fn, frames, loop, hero_t)  in place: the app moves/turns the root (walk_speed, turn_rate)
+    "Walk": (walk, 36, True, 0.0),
+    "WalkCan": (walk_can, 36, True, 0.0),
+    "TurnStep": (turn_step, 36, True, 5 / 36),
+    "Water": (water, 48, True, 0.30),
+    "Sniff": (sniff, 60, False, 40 / 59),
+    "Wave": (wave_hello, 44, False, 22 / 43),
+    "PickUp": (pickup, 24, False, 1.0),     # can appears at PICK["grab"]; played backwards = PutDown
+}
+
+CLIPS = {**STATES, **ACTIVITIES}
+
 
 def controls_at(name, t=None, frame=None):
-    fn, n, loop, hero = STATES[name]
+    fn, n, loop, hero = CLIPS[name]
     if frame is None:
         frame = round((hero if t is None else t) * (n if loop else n - 1))
     tt = frame / n if loop else frame / (n - 1)
@@ -359,18 +785,19 @@ def controls_at(name, t=None, frame=None):
 
 # --------------------------------------------------------------------------- baking
 def bake_actions(rig_ob, names=None, step=1):
-    """Create one Action per state with keys on every bone (LINEAR, sampled every `step`)."""
+    """Create one Action per clip with keys on every bone (LINEAR, sampled every `step`)."""
     import bpy
     from bpy_extras import anim_utils
     from capy_pose import CapyRig
 
     rig = CapyRig(rig_ob)
+    use_rig(rig)
     if rig_ob.animation_data is None:
         rig_ob.animation_data_create()
     ad = rig_ob.animation_data
     made = []
-    for name in (names or STATES.keys()):
-        fn, n, loop, _ = STATES[name]
+    for name in (names or CLIPS.keys()):
+        fn, n, loop, _ = CLIPS[name]
         act_name = name
         if act_name in bpy.data.actions:
             bpy.data.actions.remove(bpy.data.actions[act_name])

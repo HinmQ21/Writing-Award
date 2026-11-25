@@ -12,8 +12,22 @@ EYE_VARIANTS = ("open", "happy", "closed", "squint", "sad", "angry", "sleepy", "
 MOUTH_VARIANTS = ("smile", "open", "frown", "o", "wavy", "grr", "tongue", "smirk")
 PROPS = ("beret", "crown", "yuzu", "scarf", "scarf_tail", "tear.L", "tear.R", "sweat", "anger", "puff.L", "puff.R",
          "z1", "z2", "z3", "bubble", "notebook", "pencil", "spark1", "spark2", "spark3", "spark4", "spark5",
-         "heart1", "heart2", "heart3", "cloud", "drop1", "drop2", "drop3", "snow1", "snow2", "exclaim", "question")
+         "heart1", "heart2", "heart3", "cloud", "drop1", "drop2", "drop3", "snow1", "snow2", "exclaim", "question",
+         "can")
 SIDES = (("L", 1.0), ("R", -1.0))
+
+# Watering can with a rear D-handle, so it tips forward, away from the body. Can-bone space uses the
+# armature axes at rest (+Z up, -Y = spout side) with the origin at the grip on the handle, which sits
+# in the right paw (arm.R tail). capy_build shapes the mesh from these numbers, capy_anim aims the pour.
+CAN = dict(r=0.085, h=0.150, handle_cz=0.085, handle_ry=0.068, handle_rz=0.056, handle_r=0.012, grip_deg=30.0,
+           spout_deg=35.0, spout_len=0.190, spout_r=(0.018, 0.012), rose_r=(0.015, 0.033), rose_len=0.032)
+CAN_HANDLE_Y = CAN["r"] - 0.012                         # handle arc centre, behind the can axis
+CAN_BOTTOM = -Vector((0.0, CAN_HANDLE_Y + CAN["handle_ry"] * math.cos(math.radians(CAN["grip_deg"])),
+                      CAN["handle_cz"] + CAN["handle_rz"] * math.sin(math.radians(CAN["grip_deg"]))))
+SPOUT_DIR = Vector((0.0, -math.cos(math.radians(CAN["spout_deg"])), math.sin(math.radians(CAN["spout_deg"]))))
+SPOUT_BASE = CAN_BOTTOM + Vector((0.0, -CAN["r"] * 0.45, 0.035))
+SPOUT_TIP = SPOUT_BASE + SPOUT_DIR * CAN["spout_len"]
+ROSE_FACE = SPOUT_TIP + SPOUT_DIR * (CAN["rose_len"] - 0.004)   # centre of the sprinkler face
 
 
 def eul(x=0.0, y=0.0, z=0.0):
@@ -45,11 +59,15 @@ class CapyRig:
         self.ob = rig_ob
         self.rest = {}
         self.frame = {}
+        self.mat, self.parent, self.head, self.tail = {}, {}, {}, {}
         for b in rig_ob.data.bones:
             m = b.matrix_local.to_3x3()
             self.rest[b.name] = m
             # bone axes in armature space: X, Y (along bone), Z (up/roll)
             self.frame[b.name] = (m.col[0].copy(), m.col[1].copy(), m.col[2].copy())
+            self.mat[b.name] = b.matrix_local.copy()
+            self.parent[b.name] = b.parent.name if b.parent else None
+            self.head[b.name], self.tail[b.name] = b.head_local.copy(), b.tail_local.copy()
         self.names = [b.name for b in rig_ob.data.bones]
 
     # ------------------------------------------------------------------ conversion
@@ -120,6 +138,28 @@ class CapyRig:
         if not isinstance(c["props"].get("scarf_tail"), dict) and "scarf_tail" not in c["props"]:
             T["scarf_tail"] = (Vector(), Quaternion(), Vector((1, 1, 1)))
         return T
+
+    # ------------------------------------------------------------------ forward kinematics
+    def fk(self, T):
+        """Armature-space pose matrix of every bone for solved transforms T, as Blender evaluates them."""
+        M = {}
+
+        def get(name):
+            if name not in M:
+                loc, rot, s = T[name]
+                basis = Matrix.Translation(loc) @ rot.to_matrix().to_4x4() @ Matrix.Diagonal((s[0], s[1], s[2], 1.0))
+                p = self.parent[name]
+                rest = self.mat[name] if p is None else get(p) @ self.mat[p].inverted() @ self.mat[name]
+                M[name] = rest @ basis
+            return M[name]
+
+        for name in self.names:
+            get(name)
+        return M
+
+    def carried(self, M, name, p_rest):
+        """Where a rest-pose point rigidly attached to bone `name` ends up under pose matrices M."""
+        return M[name] @ self.mat[name].inverted() @ Vector(p_rest)
 
     def apply(self, T):
         pbs = self.ob.pose.bones

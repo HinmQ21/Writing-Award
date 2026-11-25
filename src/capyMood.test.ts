@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { baseMood, CAPY_MOODS, CLIP_SECONDS, entrySteps, localHour, reconcileSteps, REJECTED_STEPS } from './capyMood';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { baseMood, CAPY_MOODS, capyBus, CLIP_SECONDS, createMoodQueue, entrySteps, localHour, nextPokeReaction, pokeCounter, reconcileSteps, REJECTED_STEPS } from './capyMood';
+import type { CapyMood } from './capyMood';
 import { createProgress, reconcileProgress } from './model';
 
 // 2026-11-09 in Asia/Ho_Chi_Minh (UTC+7).
@@ -55,3 +56,68 @@ describe('Capy reactions', () => {
     expect(Object.keys(CLIP_SECONDS).sort()).toEqual([...CAPY_MOODS].sort());
   });
 });
+
+describe('Capy mood queue', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  it('waits until Capy is on screen, then plays each step for its time', () => {
+    vi.useFakeTimers();
+    const queue = createMoodQueue(reset());
+    vi.advanceTimersByTime(60_000);
+    expect(queue.steps().map(step => step.mood)).toEqual(['Sad', 'Grumpy']);
+    queue.markReady();
+    vi.advanceTimersByTime(3999); expect(queue.steps()[0].mood).toBe('Sad');
+    vi.advanceTimersByTime(1); expect(queue.steps()[0].mood).toBe('Grumpy');
+    vi.advanceTimersByTime(3000); expect(queue.steps()).toEqual([]);
+  });
+  it('replaces the queue on play, clears it on interrupt and holds while paused', () => {
+    vi.useFakeTimers();
+    const queue = createMoodQueue(), changes = vi.fn();
+    queue.subscribe(changes); queue.markReady();
+    queue.play([]); expect(changes).not.toHaveBeenCalled();
+    queue.play(entrySteps(true, false, false)); expect(queue.steps()[0].mood).toBe('Celebrate');
+    queue.pause(); vi.advanceTimersByTime(10_000); expect(queue.steps()[0].mood).toBe('Celebrate');
+    queue.resume(); vi.advanceTimersByTime(4000); expect(queue.steps()).toEqual([]);
+    queue.play(REJECTED_STEPS); queue.interrupt(); expect(queue.steps()).toEqual([]);
+    expect(changes).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('Capy pokes', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  it('reach every listener without touching the mood queue', () => {
+    vi.useFakeTimers();
+    const queue = createMoodQueue(reset()), changes = vi.fn(), heard: CapyMood[] = [];
+    queue.subscribe(changes); queue.markReady();
+    const stop = capyBus.listen(mood => heard.push(mood));
+    const before = queue.steps();
+    capyBus.react('Surprised'); capyBus.react('Grumpy');
+    expect(heard).toEqual(['Surprised', 'Grumpy']);
+    expect(queue.steps()).toBe(before); expect(changes).not.toHaveBeenCalled();
+    // The step timers keep their schedule through a reaction.
+    vi.advanceTimersByTime(3999); capyBus.react('Surprised'); expect(queue.steps()[0].mood).toBe('Sad');
+    vi.advanceTimersByTime(1); expect(queue.steps()[0].mood).toBe('Grumpy');
+    stop(); capyBus.react('Surprised'); expect(heard).toHaveLength(3);
+  });
+  it('make Capy surprised, and grumpy on the fourth within three seconds', () => {
+    const next = pokeCounter();
+    expect([0, 400, 900].map(time => next(time))).toEqual(['Surprised', 'Surprised', 'Surprised']);
+    expect(next(1500)).toBe('Grumpy');
+    expect(next(1600)).toBe('Surprised'); // the count starts over
+  });
+  it('forget pokes older than three seconds', () => {
+    const next = pokeCounter();
+    for (const time of [0, 1000, 2000]) next(time);
+    expect(next(3500)).toBe('Surprised'); // the poke at 0 has expired
+    expect(next(4000)).toBe('Grumpy');
+    expect(next(20_000)).toBe('Surprised');
+  });
+  it('count world taps and logo clicks together', () => {
+    const start = 1e9; // far from any earlier poke in this run
+    expect(nextPokeReaction(start)).toBe('Surprised'); // a tap in the world
+    expect(nextPokeReaction(start + 300)).toBe('Surprised'); // a logo click
+    expect(nextPokeReaction(start + 600)).toBe('Surprised');
+    expect(nextPokeReaction(start + 900)).toBe('Grumpy');
+  });
+});
+
+function reset() { return [{ mood: 'Sad' as const, ms: 4000 }, { mood: 'Grumpy' as const, ms: 3000 }]; }

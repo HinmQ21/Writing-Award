@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { dayKey, TIMEZONE } from './model';
 import type { Progress } from './model';
 
@@ -41,19 +41,56 @@ export function entrySteps(newDay: boolean, milestone: boolean, complete: boolea
 export const REJECTED_STEPS: CapyStep[] = [step('Confused')];
 
 /**
- * Plays queued reaction steps over a resting mood. Steps wait until the 3D Capy is on screen,
+ * The queue of reaction steps behind useCapyMood. Steps wait until the 3D Capy is on screen (markReady),
  * so a one-time reaction (a reset streak, a used freeze) is not spent while the model is still loading.
  */
-export function useCapyMood(resting: CapyMood, initialSteps: CapyStep[] = []) {
-  const [queue, setQueue] = useState(initialSteps);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    if (!ready || !queue.length) return;
-    const timer = setTimeout(() => setQueue(steps => steps.slice(1)), queue[0].ms);
-    return () => clearTimeout(timer);
-  }, [queue, ready]);
-  const play = useCallback((steps: CapyStep[]) => { if (steps.length) setQueue(steps); }, []);
-  const interrupt = useCallback(() => setQueue(steps => steps.length ? [] : steps), []);
-  const markReady = useCallback(() => setReady(true), []);
-  return { mood: queue[0]?.mood ?? resting, play, interrupt, markReady };
+export function createMoodQueue(initialSteps: CapyStep[] = []) {
+  let steps = initialSteps, ready = false, active = true, timer: ReturnType<typeof setTimeout> | undefined;
+  const listeners = new Set<() => void>();
+  function arm() {
+    clearTimeout(timer); timer = undefined;
+    if (ready && active && steps.length) timer = setTimeout(() => { steps = steps.slice(1); arm(); listeners.forEach(listener => listener()); }, steps[0].ms);
+  }
+  function replace(next: CapyStep[]) { steps = next; arm(); listeners.forEach(listener => listener()); }
+  return {
+    steps: () => steps,
+    subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    play(next: CapyStep[]) { if (next.length) replace(next); },
+    interrupt() { if (steps.length) replace([]); },
+    markReady() { if (!ready) { ready = true; arm(); } },
+    /** Stops the countdown while nothing shows the queue; resume restarts the current step. */
+    pause() { active = false; arm(); },
+    resume() { active = true; arm(); },
+  };
 }
+
+/** Plays queued reaction steps over a resting mood (see createMoodQueue). */
+export function useCapyMood(resting: CapyMood, initialSteps: CapyStep[] = []) {
+  const [queue] = useState(() => createMoodQueue(initialSteps));
+  const steps = useSyncExternalStore(queue.subscribe, queue.steps);
+  useEffect(() => { queue.resume(); return queue.pause; }, [queue]);
+  return { mood: steps[0]?.mood ?? resting, play: queue.play, interrupt: queue.interrupt, markReady: queue.markReady };
+}
+
+type Reaction = (mood: CapyMood) => void;
+const reactions = new Set<Reaction>();
+/**
+ * Instant reactions (a poke) for whatever shows Capy's face, which is the logo. It never touches the mood queue:
+ * a reaction plays over the current mood and returns to it.
+ */
+export const capyBus = {
+  react: (mood: CapyMood) => { reactions.forEach(listener => listener(mood)); },
+  listen: (listener: Reaction) => { reactions.add(listener); return () => { reactions.delete(listener); }; },
+};
+
+/** Counts pokes: Surprised, or Grumpy on the `grumpyAt`th poke within `windowMs`, after which the count starts over. */
+export function pokeCounter(windowMs = 3000, grumpyAt = 4) {
+  let pokes: number[] = [];
+  return (now = performance.now()): CapyMood => {
+    pokes = pokes.filter(time => now - time <= windowMs); pokes.push(now);
+    if (pokes.length < grumpyAt) return 'Surprised';
+    pokes = []; return 'Grumpy';
+  };
+}
+/** One shared count for taps on Capy in the world and clicks on the logo. */
+export const nextPokeReaction = pokeCounter();

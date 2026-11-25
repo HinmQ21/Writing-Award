@@ -4,9 +4,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RotateCcw } from 'lucide-react';
-import type { CapyMood } from './capyMood';
-import { createCapy, loadCapyModel, loadedCapyModel } from './capyModel';
-import type { CapyActor } from './capyModel';
+import { localHour, nextPokeReaction, type CapyMood } from './capyMood';
+import { loadCapyModel, loadedCapyModel } from './capyModel';
+import { BUSH17_X, inKeepClear } from './capyNavData';
+import { capyMemory, createWorldCapy, type WorldCapy, type WorldFixtures } from './capyWorld';
+import type { Sense } from './capyWorldTypes';
 import { useTheme } from './theme';
 
 export type SceneHandle = { rotate: (direction: number) => void; zoom: (direction: number) => void; reset: () => void };
@@ -17,15 +19,12 @@ type Props = {
   animatePiece?: boolean;
   miniature?: boolean;
   rewardPiece?: boolean;
-  /** Capy's resting mood. Changing it cross-fades the animation without rebuilding the scene. */
-  mood?: CapyMood;
-  /** A tap on Capy: Surprised, or Grumpy after four taps within three seconds. */
+  /** A tap on Capy: Surprised, or Grumpy on the fourth poke within three seconds (world taps and logo clicks count together). */
   onCapyPet?: (reaction: CapyMood) => void;
-  /** The 3D Capy is on screen. */
-  onCapyReady?: () => void;
 };
-// Capy sits at the front-left of every world except the Lego one, turned a little toward the steps but facing the camera enough to read its face.
-const CAPY_X = -1.72, CAPY_Z = 1.8, CAPY_SCALE = 1.18, CAPY_TURN = 1.08;
+// The decor loops keep this front-left spot clear (Capy's resting place), and in the Capy worlds also the cottage door lane.
+// capyNavData.ts mirrors both, so the walkable map matches what is drawn.
+const CLEAR_X = -1.72, CLEAR_Z = 1.8;
 const C = { grass: '#c4d49b', earth: '#d8c29e', cream: '#ffe9bd', trim: '#e8bc83', wood: '#a9794b', roof: '#e69b92', dark: '#5e4435', leaf: '#9cb86d', flower: '#e4adc0', water: '#b4d3ce', glass: '#e9d6a2', gold: '#e9bc65' };
 const materials = new Map<string, THREE.MeshStandardMaterial>();
 function material(color: string) {
@@ -71,17 +70,37 @@ function createHeartGeometry() {
 }
 
 function windowRound(parent: THREE.Object3D, x: number, y: number, z: number, radius = .34) {
-  const glass = cylinder(parent, radius, .075, C.glass, x, y, z); glass.rotation.x = Math.PI / 2;
+  const glass = cylinder(parent, radius, .075, C.glass, x, y, z); glass.rotation.x = Math.PI / 2; glass.userData.glass = true;
   const ring = mesh(parent, new THREE.TorusGeometry(radius, .065, 8, 32), C.trim, x, y, z + .06);
   box(parent, radius * 1.8, .055, .07, C.trim, x, y, z + .09, .01);
   box(parent, .055, radius * 1.8, .07, C.trim, x, y, z + .09, .01); return ring;
 }
-function arch(parent: THREE.Object3D, x: number, y: number, z: number) {
+function archShape() {
   const s = new THREE.Shape(); s.moveTo(-.4, 0); s.lineTo(.4, 0); s.lineTo(.4, 1); s.absarc(0, 1, .4, 0, Math.PI, false); s.lineTo(-.4, 0);
-  mesh(parent, new THREE.ExtrudeGeometry(s, { depth: .12, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: .025, bevelThickness: .025 }), C.wood, x, y, z);
-  for (let i = -1; i <= 1; i++) box(parent, .016, 1.13, .02, '#bc8d59', x + i * .21, y + .63, z + .15, .003);
-  ball(parent, .055, C.gold, x + .24, y + .62, z + .19);
-  windowRound(parent, x, y + 1.02, z + .13, .19);
+  return s;
+}
+/**
+ * The cottage door. The leaf hangs in a hinge group at its back-left edge (x -.425, z 1.405) and opens inward
+ * (rotation.y 0 to +92 degrees). Behind it, a dark arch at z 1.505 shows only while the door is open: it reads as the
+ * dark room inside, and depth-tests away whatever part of Capy has stepped past it (doc section 5.4).
+ */
+function door(parent: THREE.Object3D, x: number, y: number, z: number) {
+  const hinge = new THREE.Group(); hinge.position.set(x - .425, y, z - .025); parent.add(hinge);
+  const leaf = new THREE.Group(); leaf.position.set(.425, 0, .025); hinge.add(leaf);
+  mesh(leaf, new THREE.ExtrudeGeometry(archShape(), { depth: .12, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: .025, bevelThickness: .025 }), C.wood);
+  for (let i = -1; i <= 1; i++) box(leaf, .016, 1.13, .02, '#bc8d59', i * .21, .63, .15, .003);
+  ball(leaf, .055, C.gold, .24, .62, .19);
+  windowRound(leaf, 0, 1.02, .13, .19);
+  const portal = new THREE.Mesh(new THREE.ShapeGeometry(archShape(), 12), new THREE.MeshBasicMaterial({ color: '#3b2b22' }));
+  portal.position.set(x, y, 1.505); portal.visible = false; parent.add(portal);
+  return { hinge, portal };
+}
+/** The mailbox flag: an arm lying forward along +z that swings up (rotation.x to -90 degrees) once Capy has checked the mail. */
+function mailFlag(parent: THREE.Object3D, x: number, y: number, z: number) {
+  const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g);
+  box(g, .025, .025, .2, '#c25b4f', 0, 0, .09, .008);
+  box(g, .025, .09, .08, '#d9655a', 0, .045, .17, .01);
+  return g;
 }
 function roof(parent: THREE.Object3D, side: number) {
   const g = new THREE.Group(); parent.add(g); g.position.set(side * .74, 2.86, 0); g.rotation.z = side * -.59;
@@ -107,7 +126,7 @@ function buildCottage(root: THREE.Group, count: number) {
   box(parts[5], 2.6, 1.94, .18, C.cream, 0, 1.31, -1.32);
   [-1.27, 1.27].forEach(x => box(parts[2], .13, 2.05, .13, C.trim, x, 1.32, 1.43));
   box(parts[2], 2.6, .12, .12, C.trim, 0, .47, 1.44);
-  arch(parts[6], 0, .36, 1.43);
+  const entrance = door(parts[6], 0, .36, 1.43);
   windowRound(parts[7], 0, 2.55, 1.49, .27);
   const win = new THREE.Group(); parts[8].add(win); win.position.set(1.43, 1.43, 0); win.rotation.y = Math.PI / 2; windowRound(win, 0, 0, 0, .34);
   box(win, .94, .1, .2, C.trim, 0, -.45, .06); box(win, .83, .2, .22, '#b2bd85', 0, -.56, .06);
@@ -119,29 +138,36 @@ function buildCottage(root: THREE.Group, count: number) {
   for (let i = 0; i < 3; i++) box(parts[12], .49, .025, .49, '#deb18b', .68, 2.92 + i * .27, -.6, .01);
   fence(parts[13], -1); fence(parts[14], 1);
   tree(parts[15], 2.5, -1.9, .7);
-  for (let i = 0; i < 5; i++) { ball(parts[16], .25, ['#a8bf7e','#bdcf91'][i % 2], -1.1 + i * .19, .43, 1.62); flower(parts[16], -1.1 + i * .19, .58, 1.8, C.flower, .65); }
+  // Three balls, not five, so the door lane stays clear (doc section 4.4).
+  BUSH17_X.forEach((x, i) => { ball(parts[16], .25, ['#a8bf7e','#bdcf91'][i % 2], x, .43, 1.62); flower(parts[16], x, .58, 1.8, C.flower, .65); });
   for (let i = 0; i < 10; i++) flower(parts[17], 1.6 + Math.sin(i * 2) * .38, .21, 1.8 + Math.cos(i * 2) * .4, ['#e5b1c5','#f6d98e','#fff1d1'][i % 3], .8);
   cylinder(parts[18], .055, .73, C.wood, 1.8, .48, 2.13); box(parts[18], .39, .29, .3, '#df9d92', 1.8, .97, 2.13); box(parts[18], .2, .03, .03, C.cream, 1.8, 1, 2.3);
-  cylinder(parts[19], .2, .1, C.gold, -1.72, 1.29, 1.8);
-  for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5; mesh(parts[19], new THREE.ConeGeometry(.06, .18, 5), C.gold, -1.72 + Math.cos(a) * .17, 1.41, 1.8 + Math.sin(a) * .17); }
+  const flag = mailFlag(parts[18], 2.01, .92, 2.06);
+  // The crown drops onto Capy's head where Capy waits for it, clear of the eave (doc section 4.4).
+  cylinder(parts[19], .2, .1, C.gold, -1.9, 1.11, 1.7);
+  for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5; mesh(parts[19], new THREE.ConeGeometry(.06, .18, 5), C.gold, -1.9 + Math.cos(a) * .17, 1.23, 1.7 + Math.sin(a) * .17); }
   box(parts[20], .7, .4, .1, '#e5c79b', -2.35, .84, 2.1); box(parts[20], .08, .65, .08, C.wood, -2.35, .39, 2.1);
   for (let i = 0; i < 3; i++) box(parts[20], .34 - i * .05, .025, .02, '#9a7852', -2.35, .95 - i * .1, 2.16, .003);
   parts.forEach((g, i) => { g.visible = i < count; });
+  // Taps on the house knock on the door while Capy is inside.
+  for (let i = 0; i < 13; i++) parts[i].traverse(o => { o.userData.isHouse = true; });
   if (count < 13 && count >= 10) {
     const ghost = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(.48, 1.12, .48)), new THREE.LineBasicMaterial({ color: '#9b967a', transparent: true, opacity: .45 }));
     ghost.position.set(.68, 3.25, -.6); root.add(ghost);
   }
-  return parts;
+  return { parts, entrance, flag };
 }
 function buildTree(root: THREE.Group, count: number) {
   const parts = Array.from({ length: 21 }, () => { const g = new THREE.Group(); root.add(g); return g; });
   cylinder(parts[0], .45, .2, '#bc9468', 0, .2, 0);
-  for (let i = 1; i < 6; i++) cylinder(parts[i], .3 - i * .025, .55, C.wood, Math.sin(i) * .08, .25 + i * .5, 0);
+  // The first trunk section reaches down into the mound instead of floating above it.
+  for (let i = 1; i < 6; i++) cylinder(parts[i], .3 - i * .025, i === 1 ? .725 : .55, C.wood, Math.sin(i) * .08, i === 1 ? .6625 : .25 + i * .5, 0);
   for (let i = 6; i < 14; i++) { const a = (i - 6) * 2.4; ball(parts[i], .8, ['#e7afc0','#efc5cf','#dda0b9'][i % 3], Math.sin(a) * .95, 2.8 + Math.cos(a * 2) * .45, Math.cos(a) * .8); }
   box(parts[14], 1.15, .6, .5, '#d8b98b', -1.5, .45, .8);
   for (let i = 0; i < 8; i++) box(parts[14], .09, .3 + (i % 3) * .06, .22, ['#b7b0d0','#e3a997','#adc39a'][i % 3], -1.95 + i * .13, .88, .8, .01);
   cylinder(parts[15], .6, .13, C.trim, 1.4, .75, 1.2); cylinder(parts[15], .08, .6, C.wood, 1.4, .4, 1.2);
   box(parts[16], .65, .15, .45, '#d6b283', 1.45, .35, 2);
+  for (const [dx, dz] of [[-.25, -.15], [.25, -.15], [-.25, .15], [.25, .15]]) cylinder(parts[16], .035, .16, C.wood, 1.45 + dx, .2, 2 + dz);
   for (let i = 17; i < 21; i++) { const a = i * 2; flower(parts[i], Math.sin(a) * 2, .2, Math.cos(a) * 2, '#e4a5bd', 1.3); }
   parts.forEach((g, i) => g.visible = i < count); return parts;
 }
@@ -283,20 +309,16 @@ type FloatingHeart = {
   vz: number;
 };
 
-const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rainy = false, animatePiece = false, miniature = false, rewardPiece = false, mood = 'Calm', onCapyPet, onCapyReady }, ref) {
+const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rainy = false, animatePiece = false, miniature = false, rewardPiece = false, onCapyPet }, ref) {
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<SceneHandle>({ rotate: () => {}, zoom: () => {}, reset: () => {} });
   const [failed, setFailed] = useState(false);
   const { resolvedTheme } = useTheme();
   const applyAppearance = useRef<(dark: boolean) => void>(() => {});
   useImperativeHandle(ref, () => ({ rotate: d => api.current.rotate(d), zoom: d => api.current.zoom(d), reset: () => api.current.reset() }), []);
-  // Mood and callbacks reach the running scene through refs, so a new mood or a re-rendered parent never rebuilds it.
-  // These effects are declared before the scene effect so the refs are current when it runs.
-  const moodRef = useRef(mood);
-  const capyRef = useRef<CapyActor | null>(null);
-  const callbacks = useRef({ onCapyPet, onCapyReady });
-  useEffect(() => { callbacks.current = { onCapyPet, onCapyReady }; });
-  useEffect(() => { moodRef.current = mood; capyRef.current?.setMood(mood); }, [mood]);
+  // The callback reaches the running scene through a ref, so a re-rendered parent never rebuilds it.
+  const callbacks = useRef({ onCapyPet });
+  useEffect(() => { callbacks.current = { onCapyPet }; });
 
   useEffect(() => {
     const element = host.current; if (!element) return;
@@ -339,20 +361,30 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     box(decor, 7.05, .52, 5.95, C.earth, 0, -.27, 0, .6);
     box(decor, 7.13, .22, 6.03, C.grass, 0, .02, 0, .6);
     for (let i = 0; i < 22; i++) { const a = i * Math.PI * 2 / 22; ball(decor, .2 + (i % 3) * .04, ['#c0ce91','#c9d79c','#b7ca87'][i % 3], Math.cos(a) * 3.32, .08, Math.sin(a) * 2.75, [1.3, .6, 1.1]); }
-    tree(decor, -2.65, -1.35, 1.05, world === 1); tree(decor, 2.55, -1.75, .65, world === 1);
+    tree(decor, -2.65, -1.35, 1.05, world === 1);
+    // The cottage's own tree (piece 16) grows where the small decor tree stands, so it replaces it.
+    if (!(world === 0 && pieces >= 16)) tree(decor, 2.55, -1.75, .65, world === 1);
+    const doorLane = (x: number, z: number) => world !== 2 && inKeepClear(x, z);
     for (let i = 0; i < 9; i++) {
       const a = i * 2.39, bx = Math.sin(a) * 2.75, bz = Math.cos(a) * 2.15;
-      if (Math.hypot(bx - CAPY_X, bz - CAPY_Z) > 0.92) ball(decor, .26, ['#a9bf80','#b5c98d'][i % 2], bx, .25, bz, [1.3, .85, 1]);
+      if (Math.hypot(bx - CLEAR_X, bz - CLEAR_Z) > 0.92 && !doorLane(bx, bz)) ball(decor, .26, ['#a9bf80','#b5c98d'][i % 2], bx, .25, bz, [1.3, .85, 1]);
     }
     for (let i = 0; i < 13; i++) {
       const a = i * 2.4, fx = Math.sin(a) * (2.6 + (i % 2) * .2), fz = Math.cos(a) * 2.3;
-      if (Math.hypot(fx - CAPY_X, fz - CAPY_Z) > 0.88) flower(decor, fx, .17, fz, ['#f7dd9b','#e9b7c2','#f4e4cc'][i % 3], .6 + i % 3 * .18);
+      if (Math.hypot(fx - CLEAR_X, fz - CLEAR_Z) > 0.88 && !doorLane(fx, fz)) flower(decor, fx, .17, fz, ['#f7dd9b','#e9b7c2','#f4e4cc'][i % 3], .6 + i % 3 * .18);
     }
     for (let i = 0; i < 4; i++) { const stone = cylinder(decor, .25, .06, '#f1e0bb', .05 + Math.sin(i * .8) * .2, .17, 1.65 + i * .36); stone.scale.set(1.25, 1, .67); }
     const pond = cylinder(decor, .63, .05, '#e6d3a9', 2.5, .17, 1.1); pond.scale.set(1, 1, 1.45);
     const water = cylinder(decor, .52, .055, C.water, 2.5, .2, 1.1); water.scale.set(1, 1, 1.45);
 
-    const parts = world === 0 ? buildCottage(root, pieces) : world === 1 ? buildTree(root, pieces) : buildLego(root, pieces);
+    const cottage = world === 0 ? buildCottage(root, pieces) : null;
+    const parts = cottage ? cottage.parts : world === 1 ? buildTree(root, pieces) : buildLego(root, pieces);
+    // The cottage's window panes glow while Capy is home: one clone of the shared glass material, so other scenes stay unlit.
+    const windowGlass: THREE.MeshStandardMaterial[] = [];
+    if (cottage) {
+      const glass = material(C.glass).clone(); windowGlass.push(glass);
+      for (const i of [6, 7, 8]) parts[i].traverse(o => { if (o.userData.glass) (o as THREE.Mesh).material = glass; });
+    }
     let pieceExtent = 1;
     if (rewardPiece) {
       const part = parts[Math.min(20, Math.max(0, pieces - 1))];
@@ -371,26 +403,22 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     const heartGeo = createHeartGeometry();
     const heartMat = new THREE.MeshStandardMaterial({ color: '#f26d85', roughness: .4, emissive: '#f26d85', emissiveIntensity: 0.2 });
     const hearts: FloatingHeart[] = [];
-    let capy: CapyActor | null = null;
-    const pokes: number[] = [];
+    let capy: WorldCapy | null = null;
+    const heartsAt = new THREE.Vector3();
 
+    // Capy's face reacts in the logo; the world answers a tap with hearts.
     function triggerCapyReaction() {
-      const now = performance.now();
-      while (pokes.length && now - pokes[0] > 3000) pokes.shift();
-      pokes.push(now);
-      const grumpy = !!capy && pokes.length >= 4;
-      if (grumpy) pokes.length = 0;
-      const reaction: CapyMood = grumpy ? 'Grumpy' : 'Surprised';
-      capy?.react(reaction);
+      const reaction = nextPokeReaction();
       callbacks.current.onCapyPet?.(reaction);
-      if (!grumpy) floatHearts();
+      if (reaction !== 'Grumpy') floatHearts();
       render();
     }
 
     function floatHearts() {
-      const cx = world === 2 ? 0 : CAPY_X;
-      const cy = world === 2 ? 2.5 : 1.15;
-      const cz = world === 2 ? 0.8 : CAPY_Z;
+      if (world === 2) heartsAt.set(0, 2.5, .8);
+      else if (capy) decor.worldToLocal(capy.headTop(heartsAt));
+      else return;
+      const cx = heartsAt.x, cy = heartsAt.y, cz = heartsAt.z;
       for (let i = 0; i < 4; i++) {
         const hMesh = new THREE.Mesh(heartGeo, heartMat);
         hMesh.position.set(cx + (Math.random() - 0.5) * 0.45, cy + i * 0.08, cz + (Math.random() - 0.5) * 0.45);
@@ -412,14 +440,15 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     const mouse = new THREE.Vector2();
     let pointerDownPos = { x: 0, y: 0 };
 
-    function isHittingCapy(e: PointerEvent) {
+    /** Visible meshes under the pointer (a hidden piece or a Capy hidden indoors is skipped). */
+    function hitsAt(e: PointerEvent) {
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
-      const hits = raycaster.intersectObjects(root.children, true);
-      return hits.some(h => h.object.visible && h.object.userData?.isCapy);
+      return raycaster.intersectObjects(root.children, true).filter(h => { for (let o: THREE.Object3D | null = h.object; o; o = o.parent) if (!o.visible) return false; return true; });
     }
+    const isHittingCapy = (e: PointerEvent) => hitsAt(e).some(h => h.object.userData?.isCapy);
 
     const onPointerDown = (e: PointerEvent) => {
       pointerDownPos = { x: e.clientX, y: e.clientY };
@@ -427,9 +456,10 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
 
     const onPointerUp = (e: PointerEvent) => {
       if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 6) return;
-      if (isHittingCapy(e)) {
-        triggerCapyReaction();
-      }
+      const hits = hitsAt(e);
+      if (hits.some(h => h.object.userData?.isCapy)) {
+        if (capy?.tap() !== false) triggerCapyReaction();
+      } else if (capy && hits.some(h => h.object.userData?.isHouse) && capy.knock()) render();
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -444,18 +474,28 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
 
     let frame = 0; let disposed = false; let visible = true; let animationStart = 0; let lastTime = 0;
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const still = miniature || reducedMotion;
     const animated = animatePiece && pieces > 0 && !reducedMotion ? parts[Math.min(20, pieces - 1)] : null;
+    let landed = !animated;
     // Cottage piece 20 is Capy's crown; from then on, and in every later world, Capy wears it.
-    // While that piece is dropping in, it stays a separate piece until it lands.
+    // While that piece is dropping in, it stays a separate piece until it lands on Capy, who waits under it.
     const crowned = world > 0 || pieces >= 20;
     let crownLanded = !(world === 0 && animated === parts[19]);
+    // What the world Capy's brain senses: where the camera is (in root space), rain, and the hour.
+    const cameraDir = new THREE.Vector3(), rootTurn = new THREE.Quaternion();
+    let hour = localHour(), hourAt = performance.now();
+    function sense(time: number): Sense {
+      if (time - hourAt > 60_000) { hour = localHour(); hourAt = time; }
+      cameraDir.copy(camera.position).sub(controls.target).applyQuaternion(rootTurn.copy(root.quaternion).invert());
+      return { cameraYaw: Math.atan2(cameraDir.x, cameraDir.z), rainy, hour };
+    }
     function wearCrown() {
       if (!capy || !crowned || !crownLanded) return;
       capy.setCrowned(true);
       if (world === 0) parts[19].visible = false;
     }
 
+    // At most one frame is ever pending: every request goes through `again`, or callbacks would multiply each frame.
+    const again = () => { if (!frame) frame = requestAnimationFrame(draw); };
     const draw = (time = performance.now()) => {
       frame = 0; if (disposed || !visible) { lastTime = 0; return; }
       const delta = lastTime ? Math.min(.1, (time - lastTime) / 1000) : 0; lastTime = time;
@@ -465,11 +505,13 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
         if (!animationStart) animationStart = time;
         const progress = Math.min(1, (time - animationStart) / 850);
         animated.position.y = (1 - Math.pow(progress, .4)) * 3.5;
-        if (progress < 1) frame = requestAnimationFrame(draw);
-        else if (!crownLanded) { crownLanded = true; wearCrown(); }
+        if (progress < 1) again();
+        else if (!landed) { landed = true; crownLanded = true; wearCrown(); capy?.pieceLanded(); }
       }
 
-      capy?.update(delta);
+      // Reduced motion and effects (smoke, sparkles) ask for frames even when the loop would otherwise stop.
+      if (capy?.update(delta, sense(time))) again();
+      if (import.meta.env.DEV && capy && element.dataset.capy !== capy.describe()) element.dataset.capy = capy.describe();
 
       if (hearts.length > 0) {
         for (let i = hearts.length - 1; i >= 0; i--) {
@@ -488,17 +530,15 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
             h.mesh.rotation.y += 0.04;
           }
         }
-        frame = requestAnimationFrame(draw);
+        again();
       }
 
       renderer.render(scene, camera);
 
-      if (!disposed && visible && !miniature && !reducedMotion && !frame) {
-        frame = requestAnimationFrame(draw);
-      }
+      if (!disposed && visible && !miniature && !reducedMotion) again();
     };
 
-    const render = () => { if (!frame && !disposed) frame = requestAnimationFrame(draw); };
+    const render = () => { if (!disposed) again(); };
 
     applyAppearance.current = dark => {
       renderer.toneMappingExposure = dark ? .95 : 1.05;
@@ -563,21 +603,43 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     const onLost = (e: Event) => { e.preventDefault(); setFailed(true); };
     renderer.domElement.addEventListener('webglcontextlost', onLost);
 
-    // The 3D Capy (public/models/capy.glb). The Lego world is itself a giant capybara, so Capy steps aside there.
+    // Things around the house and garden that the world Capy uses or sets off.
+    function fixtures(): WorldFixtures {
+      const plants: WorldFixtures['plants'] = [];
+      const flowersOf = (part: THREE.Object3D) => part.children.forEach(c => { if (c instanceof THREE.Group) plants.push({ at: { x: c.position.x, z: c.position.z }, objects: [c], amp: .09 }); });
+      if (cottage) {
+        flowersOf(parts[16]); flowersOf(parts[17]);
+        return {
+          door: pieces >= 7 ? cottage.entrance : undefined,
+          windows: windowGlass,
+          chimney: pieces >= 13 ? new THREE.Vector3(.68, 3.95, -.6) : undefined,
+          mailFlag: pieces >= 19 ? { object: cottage.flag, up: -Math.PI / 2 } : undefined,
+          plants,
+        };
+      }
+      if (pieces >= 7) plants.push({ at: { x: 0, z: 0 }, objects: parts.slice(6, 14), amp: .02, radius: 1 });
+      for (let i = 17; i < 21; i++) flowersOf(parts[i]);
+      return { windows: [], plants };
+    }
+    // The 3D Capy (public/models/capy.glb) lives in the cottage and tree worlds. The Lego world is itself a giant
+    // capybara, so Capy steps aside there.
     function attachCapy(gltf: GLTF, popIn: boolean) {
-      if (disposed) return;
-      capy = createCapy(gltf, { mood: moodRef.current, still, popIn, onPose: render });
-      capy.root.position.set(CAPY_X, .13, CAPY_Z); capy.root.rotation.y = CAPY_TURN; capy.root.scale.setScalar(CAPY_SCALE);
-      decor.add(capy.root);
-      capyRef.current = capy;
+      if (disposed || world === 2) return;
+      capy = createWorldCapy(gltf, {
+        world: world === 0 ? 0 : 1, pieces, parent: decor, fixtures: fixtures(),
+        mode: miniature ? 'still' : reducedMotion ? 'reduced' : 'live',
+        popIn, crownDrop: world === 0 && animated === parts[19] && !landed, freshPiece: !!animated,
+        crowned: crowned && crownLanded, sense: sense(performance.now()),
+      });
       wearCrown();
-      callbacks.current.onCapyReady?.();
       render();
     }
     if (world !== 2 && !rewardPiece) {
       const cached = loadedCapyModel();
+      // A first visit with a door starts indoors (Capy steps out), so only an outdoor first appearance pops in.
+      const startsIndoors = world === 0 && pieces >= 7 && !capyMemory(0);
       if (cached) attachCapy(cached, false);
-      else loadCapyModel().then(gltf => attachCapy(gltf, true), error => console.warn('Capy could not load; showing the world without Capy.', error));
+      else loadCapyModel().then(gltf => attachCapy(gltf, !startsIndoors), error => console.warn('Capy could not load; showing the world without Capy.', error));
     }
 
     resize();
@@ -585,8 +647,8 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     return () => {
       disposed = true; applyAppearance.current = () => {}; cancelAnimationFrame(frame);
       // Detach Capy before disposing scene geometry: its geometry and materials are shared with other scenes through the model cache.
-      if (capyRef.current === capy) capyRef.current = null;
       capy?.dispose(); capy = null;
+      windowGlass.forEach(m => m.dispose()); (cottage?.entrance.portal.material as THREE.Material | undefined)?.dispose();
       observer.disconnect(); intersection.disconnect(); controls.dispose(); floorMaterial.dispose();
       heartGeo.dispose(); heartMat.dispose();
       if (!miniature) {
@@ -609,6 +671,8 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
       });
       geometries.forEach(g => g.dispose());
       renderer.dispose();
+      // Free the context now: past 16, Chrome drops the oldest one, which would be the logo's.
+      renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [world, pieces, rainy, animatePiece, miniature, rewardPiece]);

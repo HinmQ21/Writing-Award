@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, BookOpenCheck } from 'lucide-react';
 import './choices.css';
@@ -8,14 +8,16 @@ export default function ChoiceSelect({ label, value, options, onChange }: { labe
   const [open, setOpen] = useState(false), [position, setPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 300 });
   const selected = options.find(option => option.value === value) || options[0];
   function close(restore = true) { setOpen(false); if (restore) trigger.current?.focus(); }
-  useEffect(() => {
+  // A layout effect, so the selected option has focus before the next paint: keys pressed right after opening the
+  // list go to the list, not back to the trigger, however busy the main thread is.
+  useLayoutEffect(() => {
     if (!open) return;
     const place = () => { const rect = trigger.current!.getBoundingClientRect(), width = Math.min(Math.max(rect.width, 280), innerWidth - 24), below = innerHeight - rect.bottom - 20; const height = Math.min(320, Math.max(below, rect.top - 20)); setPosition({ top: below >= Math.min(240, rect.top) ? rect.bottom + 8 : Math.max(12, rect.top - height - 8), left: Math.max(12, Math.min(rect.left, innerWidth - width - 12)), width, maxHeight: height }); };
     place();
-    const frame = requestAnimationFrame(() => popup.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
+    popup.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus({ preventScroll: true });
     const outside = (event: PointerEvent) => { if (!popup.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setOpen(false); };
     document.addEventListener('pointerdown', outside); window.addEventListener('resize', place); window.addEventListener('scroll', place, true);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('pointerdown', outside); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+    return () => { document.removeEventListener('pointerdown', outside); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
   }, [open]);
   return <div className="choice-field"><span id={`${id}-label`}>{label}</span><button ref={trigger} type="button" role="combobox" aria-labelledby={`${id}-label ${id}-value`} aria-expanded={open} aria-controls={open ? `${id}-list` : undefined} aria-haspopup="listbox" className="choice-trigger" onClick={() => setOpen(!open)} onKeyDown={event => { if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); setOpen(true); } }}><BookOpenCheck size={18} aria-hidden="true" /><span id={`${id}-value`}>{selected.label}</span><ChevronDown size={17} aria-hidden="true" /></button>{open && createPortal(<div id={`${id}-list`} ref={popup} role="listbox" aria-labelledby={`${id}-label`} className="choice-popup" style={position} onKeyDown={event => {
     const buttons = [...popup.current!.querySelectorAll<HTMLButtonElement>('[role="option"]')], index = buttons.indexOf(document.activeElement as HTMLButtonElement);

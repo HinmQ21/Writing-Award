@@ -1,4 +1,5 @@
 """Render one portrait per emotional state (hero frame), or every Nth frame of each state.
+--states also takes the world activities (Walk, Water, ...); they render in place.
 
   blender -b art/capy/capy.blend --python-exit-code 1 -P art/capy/capy_sheet.py -- --out DIR
       [--size 640] [--states Calm,Happy] [--view sheet|sheet_front|face|front|side|back|three_quarter]
@@ -61,7 +62,7 @@ def main():
         states = []
     for name in states:
         if step:
-            fn, n, loop, _ = A.STATES[name]
+            fn, n, loop, _ = A.CLIPS[name]
             d = os.path.join(out, name)
             os.makedirs(d, exist_ok=True)
             for i, f in enumerate(range(0, n if loop else n, step)):

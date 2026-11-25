@@ -116,12 +116,15 @@ test('keeps the essay when local persistence fails', async ({ page }) => {
 });
 
 test('3D controls change the rendered scene and mobile entry opens the writer', async ({ page }, testInfo) => {
-  const canvas = page.locator('canvas').first(); await expect(canvas).toBeVisible();
+  const canvas = page.locator('.scene-render canvas').first(); await expect(canvas).toBeVisible();
   await page.waitForTimeout(250);
   const before = await canvas.screenshot();
   await page.getByRole('button', { name: 'Rotate model right' }).click();
   await page.waitForTimeout(150);
   const after = await canvas.screenshot(); expect(Buffer.compare(before, after)).not.toBe(0);
+  await page.getByRole('button', { name: 'Zoom in model' }).click();
+  await page.waitForTimeout(150);
+  expect(Buffer.compare(after, await canvas.screenshot())).not.toBe(0);
   if (testInfo.project.name === 'mobile') {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.getByRole('button', { name: 'Write today' }).click();
@@ -131,7 +134,7 @@ test('3D controls change the rendered scene and mobile entry opens the writer', 
 
 test('touch scrolling over the scene preserves page scrolling', async ({ page, context }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'Synthesized touch is checked in the touch-enabled mobile context.');
-  const canvas = page.locator('canvas').first(); await expect(canvas).toBeVisible();
+  const canvas = page.locator('.scene-render canvas').first(); await expect(canvas).toBeVisible();
   await canvas.scrollIntoViewIfNeeded();
   const rect = (await canvas.boundingBox())!;
   const x = rect.x + rect.width / 2, startY = Math.min(700, rect.y + rect.height * .7);

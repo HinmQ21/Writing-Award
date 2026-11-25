@@ -86,13 +86,13 @@ test('both themes pass accessibility and reflow checks on all routes', async ({ 
 });
 
 test('theme changes keep the same 3D canvas and preserve an unsaved essay', async ({ page }) => {
-  await page.goto('/'); await expect(page.locator('canvas').first()).toBeVisible();
-  const canvas = await page.locator('canvas').first().elementHandle();
+  await page.goto('/'); await expect(page.locator('.scene-render canvas').first()).toBeVisible();
+  const canvas = await page.locator('.scene-render canvas').first().elementHandle();
   await page.getByRole('textbox', { name: /IELTS Writing/ }).fill('My unfinished essay stays here.');
   await page.getByRole('button', { name: 'Rotate model right' }).click();
   await page.getByRole('button', { name: 'Switch to dark mode' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  expect(await canvas!.evaluate(node => node.isConnected && node === document.querySelector('canvas'))).toBe(true);
+  expect(await canvas!.evaluate(node => node.isConnected && node === document.querySelector('.scene-render canvas'))).toBe(true);
   await expect(page.getByRole('textbox', { name: /IELTS Writing/ })).toHaveValue('My unfinished essay stays here.');
 });
 

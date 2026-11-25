@@ -5,8 +5,9 @@ import type { LucideIcon } from 'lucide-react';
 import './scoring/choices.css';
 import './prompts.css';
 import { BookOpenCheck } from 'lucide-react';
-import { baseMood, entrySteps, reconcileSteps, REJECTED_STEPS, useCapyMood } from './capyMood';
-import type { CapyStep } from './capyMood';
+import { baseMood, capyBus, entrySteps, nextPokeReaction, reconcileSteps, REJECTED_STEPS, useCapyMood } from './capyMood';
+import type { CapyMood, CapyStep } from './capyMood';
+import { CapyMark, replayCapyLogo } from './CapyLogo';
 import { activeWorld, attachPrompt, createProgress, dayKey, displayDate, DRAFT_KEY, essaySource, minimumWords, nextVersion, parseProgress, PIECES, PROMPT_DRAFTS_KEY, promptTitle, reconcileProgress, STORAGE_KEY, submitEssay, TIMEZONE, wordCount, worldPieces, WORLDS } from './model';
 import type { Essay, Page, Progress, PromptSelection, ScoringEssay, Task, WritingPrompt } from './model';
 import PromptChooser from './PromptChooser';
@@ -31,6 +32,7 @@ function readInitial(): { progress: Progress; issue: string; blocked: boolean; c
   } catch { return { progress: createProgress(false), issue: 'Could not read browser data. Previous data kept safe. You can download a backup in Settings before starting over.', blocked: true, capySteps: [] }; }
 }
 const TYPING_MS = 20_000;
+const GRUMPY_NOTE = 'Capy puffs up its cheeks: "Okay, okay! One little pat at a time, please."';
 function Dialog({ title, children, onClose, className = '' }: { title: string; children: ReactNode; onClose: () => void; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const d = ref.current!; const trigger = document.activeElement as HTMLElement | null; if (!d.open) d.showModal(); return () => { if (d.open) d.close(); trigger?.focus(); }; }, []);
@@ -46,9 +48,11 @@ function Dialog({ title, children, onClose, className = '' }: { title: string; c
     <h2 id="dialog-title">{title}</h2>{children}
   </dialog>;
 }
-function Logo({ compact = false }: { compact?: boolean }) {
-  return <a className="brand" href="#home" aria-label="Writing Award, back to your corner"><img src="/favicon.svg" width="48" height="48" alt="" />{!compact && <span>Writing<span>Award<span className="brand-dot">.</span></span></span>}</a>;
+/** The brand link. Its mark is Capy's face: the streak mood, one more burst on hover or keyboard focus, a start when clicked. */
+function Logo({ compact = false, mood, onReady, onPoke }: { compact?: boolean; mood: CapyMood; onReady: () => void; onPoke: () => void }) {
+  return <a className="brand" href="#home" aria-label="Writing Award, back to your corner" onClick={onPoke} onPointerEnter={event => { if (event.pointerType === 'mouse') replayCapyLogo(); }} onFocus={event => { if (focusVisible(event.currentTarget)) replayCapyLogo(); }}><CapyMark mood={mood} onReady={onReady} />{!compact && <span>Writing<span>Award<span className="brand-dot">.</span></span></span>}</a>;
 }
+function focusVisible(element: Element) { try { return element.matches(':focus-visible'); } catch { return true; } }
 function LoadingScene() { return <div className="scene-loading"><img src="/favicon.svg" width="64" height="64" alt="" /><span>Capy is opening up...</span></div>; }
 function playReward() {
   try { const context = new AudioContext(); [523.25, 659.25, 783.99].forEach((f, i) => { const oscillator = context.createOscillator(), gain = context.createGain(); oscillator.type = 'sine'; oscillator.frequency.value = f; gain.gain.setValueAtTime(0, context.currentTime + i * .11); gain.gain.linearRampToValueAtTime(.075, context.currentTime + i * .11 + .03); gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + i * .11 + .5); oscillator.connect(gain); gain.connect(context.destination); oscillator.start(context.currentTime + i * .11); oscillator.stop(context.currentTime + i * .11 + .5); }); setTimeout(() => void context.close(), 1200); } catch { /* Audio is optional; the visual reward is always available. */ }
@@ -118,6 +122,9 @@ function App() {
     setProgress(next); setIssue('');
   }
   function notify(message: string) { setToast(message); }
+  // A poke on Capy in the world or on the logo shows on the logo's face. The fourth within three seconds makes Capy grumpy.
+  function pokeCapy(reaction: CapyMood) { capyBus.react(reaction); if (reaction === 'Grumpy') notify(GRUMPY_NOTE); }
+  const pokeLogo = () => pokeCapy(nextPokeReaction());
   function onSubmit(text: string, task: Task, scoreNow: boolean, selection: PromptSelection): Essay {
     // Re-read at commit so two already-open tabs share the same daily reward.
     let latest = progress;
@@ -163,7 +170,7 @@ function App() {
   return <div className="app-shell">
     <a href="#main" className="skip-link" onClick={e => { e.preventDefault(); document.getElementById('main')?.focus(); }}>Skip to main content</a>
     <aside className="sidebar">
-      <Logo />
+      <Logo mood={capyMood} onReady={capyReady} onPoke={pokeLogo} />
       <nav aria-label="Main navigation" className="side-nav">{NAV.map(({ page: p, label, icon: Icon }) => <a key={p} href={`#${p}`} aria-label={label} aria-current={page === p ? 'page' : undefined}><Icon aria-hidden="true" size={21} /><span>{label}</span>{page === p && <span className="nav-indicator" />}</a>)}</nav>
       <div className="sidebar-bottom">
         <button type="button" className="capy-note" onClick={() => setNoteOffset(n => (n + 1) % CAPY_NOTES.length)} aria-label="Change Capy's expression">
@@ -177,7 +184,7 @@ function App() {
       </div>
     </aside>
     <div className="main-shell">
-      <header className="topbar"><div className="mobile-brand"><Logo compact /></div><span className="topbar-location"><Sprout aria-hidden="true" size={17} /> Where little things grow big</span><div className="topbar-actions"><ThemeToggle /><span className="demo-badge"><span />{progress.demo ? 'Demo data' : 'Stored locally'}</span><button className="icon-button help-top" aria-label="How-to guide" onClick={() => setHelp(true)}><CircleHelp aria-hidden="true" size={20} /></button><a href="#settings" className="avatar" aria-label="Open settings"><img src="/capy-avatar.png" width="38" height="38" alt="Capy" /></a></div></header>
+      <header className="topbar"><div className="mobile-brand"><Logo compact mood={capyMood} onReady={capyReady} onPoke={pokeLogo} /></div><span className="topbar-location"><Sprout aria-hidden="true" size={17} /> Where little things grow big</span><div className="topbar-actions"><ThemeToggle /><span className="demo-badge"><span />{progress.demo ? 'Demo data' : 'Stored locally'}</span><button className="icon-button help-top" aria-label="How-to guide" onClick={() => setHelp(true)}><CircleHelp aria-hidden="true" size={20} /></button><a href="#settings" className="avatar" aria-label="Open settings"><img src="/capy-avatar.png" width="38" height="38" alt="Capy" /></a></div></header>
       <main id="main" tabIndex={-1}>
         {issue && <div className="notice error-notice" role="alert"><ShieldCheck aria-hidden="true" size={20} /><p>{issue}</p><a href="#settings">Settings <ArrowRight aria-hidden="true" size={15} /></a></div>}
         <div className="page-heading"><div><h1 tabIndex={-1} ref={headingRef}>{page === 'home' ? <>One essay, <span>one little piece of happiness.</span></> : page === 'collection' ? 'Your worlds.' : page === 'journal' ? 'Every written page, a step further.' : page === 'scoring' ? 'Understand your writing, take another step forward.' : 'Tailor your cozy corner to fit you.'}</h1><p>{page === 'home' ? 'Hello there! Let\'s build something sweet with Capy today.' : page === 'collection' ? 'Small efforts stay behind as truly beautiful things.' : page === 'journal' ? 'Every piece is kept safe. Every effort is worth remembering.' : page === 'scoring' ? 'Join Capy in reviewing your writing, finding what shines and what can shine even brighter.' : 'A few gentle tweaks for a cozy writing flow.'}</p></div><Sun aria-hidden="true" className="heading-sun" size={40} strokeWidth={1.3} /></div>
@@ -189,8 +196,9 @@ function App() {
                 <div className="world-panel-heading"><div><h2 id="world-title">{WORLDS[world].short} <House aria-hidden="true" size={19} /></h2><p>{WORLDS[world].name}</p></div><span className="world-badge">World {world + 1}<span>/ 3</span></span></div>
                 <div className={`scene-stage ${progress.rainyUntil && progress.rainyUntil >= dayKey() ? 'rainy' : ''}`}>
                   <div className="scene-status">{progress.rainyUntil && progress.rainyUntil >= dayKey() ? <><CloudRain aria-hidden="true" size={14} /> A bit of rain, then the sun will return</> : <><span className="status-dot" /> Growing right along with you</>}</div>
-                  <div className="scene-stars" role="img" aria-label={`Decorative stars: ${progress.stars} out of 3`}>{[0, 1, 2].map(i => <Star aria-hidden="true" key={i} size={13} className={i < progress.stars ? "filled" : ""} style={{ opacity: i < progress.stars ? 1 : .35 }} />)}</div><Suspense fallback={<LoadingScene />}><Scene ref={sceneRef} world={world} pieces={count} animatePiece={animate} rainy={!!progress.rainyUntil && progress.rainyUntil >= dayKey()} mood={capyMood} onCapyReady={capyReady} onCapyPet={reaction => {
-                    if (reaction === 'Grumpy') { notify('Capy puffs up its cheeks: "Okay, okay! One little pat at a time, please."'); return; }
+                  <div className="scene-stars" role="img" aria-label={`Decorative stars: ${progress.stars} out of 3`}>{[0, 1, 2].map(i => <Star aria-hidden="true" key={i} size={13} className={i < progress.stars ? "filled" : ""} style={{ opacity: i < progress.stars ? 1 : .35 }} />)}</div><Suspense fallback={<LoadingScene />}><Scene ref={sceneRef} world={world} pieces={count} animatePiece={animate} rainy={!!progress.rainyUntil && progress.rainyUntil >= dayKey()} onCapyPet={reaction => {
+                    pokeCapy(reaction);
+                    if (reaction === 'Grumpy') return;
                     const quotes = [
                       'Capy: "A little bit every day, you\'re doing wonderfully!"',
                       'Capy: "Take a tiny moment of quiet just for yourself."',

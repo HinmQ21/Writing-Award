@@ -1,12 +1,17 @@
-"""Bake every emotional state into its own Action and export Capy as a web GLB.
+"""Bake every clip into its own Action and export Capy as a web GLB.
 
   blender -b art/capy/capy.blend --python-exit-code 1 -P art/capy/capy_export.py -- \
-      --glb public/models/capy.glb [--save] [--meshopt] [--states Calm,Happy]
+      --glb public/models/capy.glb [--save] [--compress] [--states Calm,Happy]
 
-* One Action per state (keys on every bone, LINEAR, 24 fps, loops have first == last frame).
+* One Action per clip (12 moods + 7 world activities; keys on every bone, LINEAR, 24 fps,
+  loops have first == last frame).
 * Every Action sits on a muted NLA track so the glTF exporter (ACTIONS mode) writes one clip each.
 * Expression variants and props are bone-scale toggles, so each clip carries scale tracks for
   them and switching clips in three.js resets anything the previous clip showed.
+* The static `WateringCan` node (empty + unskinned mesh) is exported next to the rig.
+* Web delivery: export WITHOUT --compress, then `gltf-transform dedup` + `gltf-transform meshopt`
+  (docs/capy/README.md). The uncompressed export snaps constant tracks so dedup can merge them.
+  --compress (Blender's own, lossy EXT_meshopt_compression) is kept for quick checks.
 """
 import json
 import os
@@ -19,6 +24,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.dont_write_bytecode = True  # keep art/capy free of __pycache__
 sys.path.insert(0, HERE)
 import capy_anim as A  # noqa: E402
+
+STATIC_PROPS = ("WateringCan",)   # unskinned nodes the app lifts out of each Capy clone
 
 
 def glb_summary(path):
@@ -55,16 +62,55 @@ def glb_summary(path):
         "images": len(gltf.get("images", [])),
         "skins": [{"joints": len(s["joints"])} for s in gltf.get("skins", [])],
         "nodes": len(gltf.get("nodes", [])),
+        "scene_nodes": [gltf["nodes"][i].get("name") for sc in gltf.get("scenes", []) for i in sc["nodes"]],
         "extensionsUsed": gltf.get("extensionsUsed", []),
         "extensionsRequired": gltf.get("extensionsRequired", []),
         "animations": clips,
     }
 
 
-def export_glb(path, rig, mesh, meshopt=False):
+def snap_constant_tracks(path, grid=1e-6):
+    """Round the values of 2-key (constant) animation tracks to `grid`, in place.
+
+    The exporter's bone-space conversion leaves ~1e-7 float noise, so tracks that hold the same value
+    (scale 1, rest rotations) on different bones differ by a few ulps. Snapped, `gltf-transform dedup`
+    merges them (~600 accessors, ~80 KB of the final file). Values move by at most grid / 2.
+    """
+    import numpy as np
+    with open(path, "rb") as fh:
+        data = bytearray(fh.read())
+    jlen, = struct.unpack_from("<I", data, 12)
+    gltf = json.loads(data[20:20 + jlen])
+    base = 20 + jlen + 8                                   # start of the BIN chunk payload
+    acc, views = gltf["accessors"], gltf["bufferViews"]
+    width = {"SCALAR": 1, "VEC3": 3, "VEC4": 4}
+    snapped = set()
+    for anim in gltf.get("animations", []):
+        for s in anim["samplers"]:
+            a = acc[s["output"]]
+            if s["output"] in snapped or a["count"] != 2 or a["componentType"] != 5126:
+                continue
+            off = base + views[a["bufferView"]].get("byteOffset", 0) + a.get("byteOffset", 0)
+            n = 2 * width[a["type"]]
+            x = np.frombuffer(bytes(data[off:off + 4 * n]), np.float32)
+            data[off:off + 4 * n] = (np.round(x / grid) * grid).astype(np.float32).tobytes()
+            snapped.add(s["output"])
+    with open(path, "wb") as fh:
+        fh.write(data)
+    return len(snapped)
+
+
+def static_props():
+    """The static prop objects (each root with its children) exported next to the rig."""
+    roots = [bpy.data.objects[n] for n in STATIC_PROPS if n in bpy.data.objects]
+    return [ob for r in roots for ob in (r, *r.children_recursive)]
+
+
+def export_glb(path, rig, mesh, meshopt=False, extra=()):
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    keep = {rig, mesh, *extra}
     for ob in bpy.data.objects:
-        ob.select_set(ob in (rig, mesh))
+        ob.select_set(ob in keep)
     bpy.context.view_layer.objects.active = rig
     kw = dict(
         filepath=path, export_format="GLB", use_selection=True,
@@ -85,7 +131,8 @@ def export_glb(path, rig, mesh, meshopt=False):
     res = bpy.ops.export_scene.gltf(**kw)
     if res != {"FINISHED"}:
         raise RuntimeError(f"glTF export failed: {res}")
-    return glb_summary(path)
+    snapped = 0 if meshopt else snap_constant_tracks(path)   # compressed buffers are not plain floats
+    return {**glb_summary(path), "snapped_constant_tracks": snapped}
 
 
 def main():
@@ -97,16 +144,17 @@ def main():
     scene = bpy.context.scene
     scene.render.fps = 24
     scene.frame_start = 1
-    scene.frame_end = max(A.STATES[s][1] + 1 for s in (states or A.STATES))
+    scene.frame_end = max(A.CLIPS[s][1] + 1 for s in (states or A.CLIPS))
     made = A.bake_actions(rig, states)
     out = {"clips": made, "objects": [o.name for o in bpy.data.objects]}
     if "--save" in argv:
         bpy.context.preferences.filepaths.save_version = 0   # no .blend1 backup next to the source
         bpy.ops.wm.save_mainfile()
         out["saved"] = bpy.data.filepath
-    out["glb"] = export_glb(glb, rig, mesh, meshopt="--compress" in argv)
+    props = static_props()
+    out["glb"] = export_glb(glb, rig, mesh, meshopt="--compress" in argv, extra=props)
     if "--raw" in argv:
-        out["glb_raw"] = export_glb(os.path.abspath(argv[argv.index("--raw") + 1]), rig, mesh)
+        out["glb_raw"] = export_glb(os.path.abspath(argv[argv.index("--raw") + 1]), rig, mesh, extra=props)
     print("@@JSON@@" + json.dumps(out))
 
 

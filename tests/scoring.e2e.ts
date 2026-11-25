@@ -154,7 +154,9 @@ test('home optionally saves an essay and continues to full scoring form without 
 });
 test('custom choices support keyboard, selected states, reflow and readable themed popups', async ({ page }, info) => {
   const trigger = page.getByRole('combobox', { name: /Task type/ }); await trigger.focus(); await page.keyboard.press('ArrowDown');
-  await expect(page.getByRole('listbox')).toBeVisible(); await page.keyboard.press('Home'); await page.keyboard.press('Enter');
+  await expect(page.getByRole('listbox')).toBeVisible();
+  // Opening the list focuses the selected option, so the next keys go to the list.
+  await expect(page.getByRole('option', { selected: true })).toBeFocused(); await page.keyboard.press('Home'); await page.keyboard.press('Enter');
   await expect(trigger).toContainText('Academic · Task 1'); await expect(trigger).toBeFocused();
   for (const theme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: theme });

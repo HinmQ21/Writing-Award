@@ -1,6 +1,6 @@
 # Capy 3D: mascot cảm xúc cho chuỗi ngày viết
 
-> Một chú capybara 3D hoạt hình có 12 trạng thái cảm xúc. Mỗi trạng thái gắn với một tình huống của chuỗi ngày nộp bài (streak), từ vui vẻ, tập trung, tự hào đến lo lắng, buồn, dỗi và bối rối. Model được dựng hoàn toàn bằng script Python cho Blender 5.3, xuất thành một file GLB cho three.js với 12 clip animation.
+> Một chú capybara 3D hoạt hình có 12 trạng thái cảm xúc. Mỗi trạng thái gắn với một tình huống của chuỗi ngày nộp bài (streak), từ vui vẻ, tập trung, tự hào đến lo lắng, buồn, dỗi và bối rối. Model được dựng hoàn toàn bằng script Python cho Blender 5.3, xuất thành một file GLB cho three.js với 19 clip animation: 12 clip cảm xúc và 7 clip hoạt động trong thế giới (đi, xách bình, xoay, tưới, ngửi, vẫy, nhặt bình).
 
 ![12 trạng thái cảm xúc](capy-emotions.jpg)
 
@@ -12,11 +12,12 @@
 |---|---|
 | Nhân vật | Capybara chibi, đầu chiếm hơn nửa chiều cao (~55%, không tính mũ). Mũ beret "nhà văn", má hồng, mõm nâu. Phong cách toy/clay mịn, sắc nét, không dùng texture (màu theo vertex). |
 | Trạng thái | 12: Calm, Focused, Happy, Celebrate, Proud, Sleepy, Worried, Chilly, Sad, Grumpy, Confused, Surprised |
-| Biểu cảm | Đổi biến thể bằng cách scale bone: 9 kiểu mắt, 8 kiểu miệng, 32 đạo cụ/ký hiệu (vương miện, bút chì, mây mưa, 💢, Zzz, "?", …) |
-| File web | [`public/models/capy.glb`](../../public/models/capy.glb): 923 KB (nén EXT_meshopt_compression), 40.668 tam giác trong file (mỗi trạng thái chỉ hiện 18–21k), 6 material, 76 joint, 12 clip ở 24 fps |
+| Hoạt động | 7 clip cho thế giới: Walk, WalkCan, TurnStep, Water, Sniff, Wave, PickUp (mục 5) |
+| Biểu cảm | Đổi biến thể bằng cách scale bone: 9 kiểu mắt, 8 kiểu miệng, 33 đạo cụ/ký hiệu (vương miện, bút chì, bình tưới, mây mưa, 💢, Zzz, "?", …) |
+| File web | [`public/models/capy.glb`](../../public/models/capy.glb): 810 KB (glTF Transform `dedup` + `meshopt`: EXT_meshopt_compression và KHR_mesh_quantization), 41.972 tam giác trong mesh skin (mỗi trạng thái chỉ hiện 18–21k) cộng 1.304 tam giác của bình tưới tĩnh, 6 material, 77 joint, 19 clip ở 24 fps |
 | Nguồn | [`art/capy/`](../../art/capy/): script dựng model, pose, animation, render, export, cùng `capy.blend` đã bake animation |
 | Kiểm chứng | QA trong Blender (từng trạng thái), và tải thử trong three.js r180 với đúng renderer và đèn của `Scene.tsx` |
-| Trong app | Đã thay nhân vật procedural cũ trong `Scene.tsx`. Mood đổi theo chuỗi ngày, giờ trong ngày, lúc đang gõ và khi chạm (mục 4 và 5) |
+| Trong app | Cảm xúc nằm ở **logo 3D** (đổi theo chuỗi ngày, giờ trong ngày, lúc đang gõ và khi chạm). Trong thế giới, Capy **tự đi lại**: ra vào nhà, tưới cây, ngửi hoa, vẫy khi được chạm (mục 5). Thiết kế đầy đủ: [logo-and-world-behavior.md](logo-and-world-behavior.md) |
 
 ## 2. Nghiên cứu → nguyên tắc thiết kế
 
@@ -102,7 +103,7 @@
 - **Ngân sách tham khảo:**
   - Khronos cho quảng cáo banner 3D: 500 KB, 30k tam giác [72].
   - Google Scene Viewer: lý tưởng 30–50k tam giác [56].
-  - Capy: mỗi trạng thái hiện 18–21k tam giác, file 923 KB.
+  - Capy: mỗi trạng thái hiện 18–21k tam giác, file 810 KB (19 clip).
 
 ## 3. Thiết kế nhân vật
 
@@ -139,10 +140,10 @@
 
 | Material | Dùng cho | Đặc tính |
 |---|---|---|
-| `M_Toy` | Phần lớn cơ thể | Màu theo vertex, độ nhám 0,6 |
+| `M_Toy` | Phần lớn cơ thể, viền bình tưới (`#F5F8FC`) | Màu theo vertex, độ nhám 0,6 |
 | `M_Eye` | Mắt | Bóng vừa |
-| `M_Gloss` | Giọt nước, tim, sao | Bóng |
-| `M_Gold` | Vương miện | Nửa kim loại (metalness 0,5), để vẫn ra màu vàng dưới ánh sáng không có environment map của app |
+| `M_Gloss` | Giọt nước, tim, sao, thân, quai và vòi bình tưới (`#6FA3DB`) | Bóng |
+| `M_Gold` | Vương miện, hoa sen của bình tưới | Nửa kim loại (metalness 0,5), để vẫn ra màu vàng dưới ánh sáng không có environment map của app |
 | `M_Blush` | Má hồng | Texture alpha tròn 64 px |
 | `M_Glass` | Bong bóng mũi | Trong suốt |
 
@@ -157,6 +158,7 @@ Mũ beret màu hồng là điểm nhấn màu. Ảnh 2D hiện có trong `public
 | Yuzu | Vui như đi tắm suối nước nóng |
 | Khăn quàng | Được freeze giữ ấm |
 | Mây mưa | Cơ chế `rainyUntil` |
+| Bình tưới | Chăm cây trong thế giới (`PickUp`, `WalkCan`, `Water`). Bán kính 0,085, cao 0,15, vòi 0,19 chếch 35°, quai ở sau, 1.304 tam giác |
 
 ## 4. 12 trạng thái và ánh xạ chuỗi ngày
 
@@ -209,10 +211,11 @@ Không dùng "must" hay câu kiểu confirmshaming.
 
 | Thông số | Giá trị |
 |---|---|
-| Nén | EXT_meshopt_compression, bắt buộc phải có decoder |
-| Mesh | 1 skinned mesh, 6 primitive/material (6 draw call) |
-| Skin | 76 joint, mỗi vertex 1 influence |
-| Clip | 12 clip. Mỗi clip có track cho mọi bone (228 channel), nên đổi clip sẽ tự tắt mọi thứ clip trước bật |
+| Nén | EXT_meshopt_compression và KHR_mesh_quantization (cả hai nằm trong `extensionsRequired`), bắt buộc phải có decoder |
+| Mesh | 1 skinned mesh, 6 primitive/material (6 draw call). Thêm bình tưới tĩnh: 3 primitive (`M_Gloss`, `M_Toy`, `M_Gold`) |
+| Node gốc | `RIG_Capy` và `WateringCan` |
+| Skin | 77 joint, mỗi vertex 1 influence |
+| Clip | 19 clip. Mỗi clip có track cho mọi bone (231 channel), nên đổi clip sẽ tự tắt mọi thứ clip trước bật |
 
 **Clip và thời điểm "hero"** (dùng cho chế độ giảm chuyển động)
 
@@ -230,22 +233,56 @@ Không dùng "must" hay câu kiểu confirmshaming.
 | `Grumpy` | 3 s | 0,30 |
 | `Confused` | 3 s | 0,25 |
 | `Surprised` | 1,46 s, một lần | 0,29 |
+| `Walk` | 1,5 s (36 khung, 2 bước × 18) | 0 (gót chạm đất) |
+| `WalkCan` | 1,5 s | 0 |
+| `TurnStep` | 1,5 s (60° mỗi 18 khung) | 0,14 |
+| `Water` | 2 s (48 khung, hai nhịp rưới) | 0,30 (nước đang rơi) |
+| `Sniff` | 2,46 s, một lần | 0,68 |
+| `Wave` | 1,79 s, một lần | 0,51 |
+| `PickUp` | 0,96 s, một lần | 1 (tư thế xách) |
+
+**Clip hoạt động** (toạ độ trong không gian của `root` trong three.js, đơn vị model, nhân thêm scale của Capy)
+
+- **Root motion không nằm trong clip:** clip đứng tại chỗ, app tự di chuyển và xoay `root`.
+- **`Walk` / `WalkCan`:**
+  - Mỗi chu kỳ 18 khung bước 0,40, tức 0,533 đơn vị/s ở timeScale 1. Đi đúng tốc độ này thì chân không trượt (đo được tối đa 0,28 mm/khung).
+  - Gót chạm đất ở f0 và f9. Khung lướt qua là 5,08 và 14,08.
+  - `WalkCan` dùng chung chân với `Walk`, tay phải giữ bình, tay trái đánh.
+- **`TurnStep`:**
+  - Ở timeScale 1, `root.rotation.y` phải tăng 80°/s (1,396 rad/s), tức rẽ trái.
+  - timeScale −1 là rẽ phải, `rotation.y` giảm. Xoay sai chiều làm chân trượt 35 mm/khung.
+- **`Water`:** nước rơi quanh (−0,50; 0,012; 0,68), tức 0,68 về trước và 0,50 sang phải, trải rộng 0,07 × 0,12. Dùng `drop1–3`.
+- **`PickUp`:**
+  - `can.scale` đổi 0 → 1 ở f10 (0,417 s). Đặt bình tĩnh ở (−0,3375; 0; 0,4459) và ẩn nó đúng lúc này.
+  - Lúc cầm, đáy bình nằm ở độ cao 0,017, nên bình nhích lên 1,7 cm. Đây là rủi ro đã chấp nhận ở giới hạn tầm với.
+  - `PutDown` là chính clip này chạy ngược. Hiện lại bình tĩnh khi thời gian lùi qua 0,417 s.
+  - Khung cuối lệch tư thế `WalkCan` f0 2,3 cm ở bàn tay, nên cần crossfade.
+- **`WateringCan`:** node tĩnh, không skin, gốc ở đáy giữa bình.
+  - Mesh nằm ở node con `WateringCanMesh`, mang transform giải lượng tử của meshopt, nên đừng reset transform của node con này.
+  - Phải gỡ `WateringCan` khỏi mọi bản load hoặc clone. Nếu không, bình sẽ đứng ở gốc tọa độ, giữa hai chân Capy.
+- **Tên track của bình:** `can.position`, `can.quaternion`, `can.scale` và `drop1.scale`, … (three.js bỏ dấu chấm trong tên bone).
 
 **Cách app dùng model**
 
+Cảm xúc ở logo, hành động ở thế giới. Thiết kế và các số đo: [logo-and-world-behavior.md](logo-and-world-behavior.md).
+
 | File | Vai trò |
 |---|---|
-| [`src/capyModel.ts`](../../src/capyModel.ts) | Tải GLB một lần (`GLTFLoader` + `MeshoptDecoder`) rồi clone bằng `SkeletonUtils.clone` cho mỗi cảnh. Điều khiển mixer: `setMood` (crossfade 0,25 s), `react` (Surprised hoặc Grumpy, xong tự về mood nền), `setCrowned`, và tư thế tĩnh tại thời điểm hero |
-| [`src/capyMood.ts`](../../src/capyMood.ts) | Hàm thuần `baseMood`, `reconcileSteps`, `entrySteps`, cùng hook `useCapyMood`: hàng đợi phản ứng, chỉ bắt đầu đếm giờ khi Capy đã hiện trên màn hình |
-| [`src/Scene.tsx`](../../src/Scene.tsx) | Đặt Capy tại (−1,72; 0,13; 1,8), scale 1,18, xoay 1,08 rad. Mood và callback đi qua ref, nên đổi mood không dựng lại cảnh |
-| [`src/App.tsx`](../../src/App.tsx) | Chọn mood theo thứ tự: phản ứng đang chờ → Focused khi đang gõ → mood nền. Mood nền tính lại mỗi phút |
+| [`src/capyModel.ts`](../../src/capyModel.ts) | Tải GLB một lần (`GLTFLoader` + `MeshoptDecoder`), clone bằng `SkeletonUtils.clone`, gỡ `WateringCan` khỏi mỗi bản clone. Actor cảm xúc cho logo: `setMood`, `react`, `burst` (một đợt ≤ 5 s rồi dừng êm ở khung hero), `halt`, tuỳ chọn `fx` phóng to ký hiệu nổi |
+| [`src/CapyLogo.tsx`](../../src/CapyLogo.tsx) | Logo 3D: một renderer dùng chung cho logo sidebar và topbar, 30 fps khi diễn, không vẽ khi nghỉ. Dự phòng `favicon.svg` khi không có WebGL, WASM, hoặc bật Save-Data |
+| [`src/capyMood.ts`](../../src/capyMood.ts) | Hàm thuần `baseMood`, `reconcileSteps`, `entrySteps`, hook `useCapyMood` (hàng đợi bắt đầu khi logo vẽ khung đầu), `capyBus` cho phản ứng tức thời, `nextPokeReaction` đếm chung lượt chạm Capy và bấm logo |
+| [`src/capyNav.ts`](../../src/capyNav.ts), [`src/capyNavData.ts`](../../src/capyNavData.ts) | Bản đồ đi được theo số mảnh (lưới A* 0,1, độ cao mặt đất, vùng nhìn thấy từ camera), POI, lối cửa. Thuần, không import three |
+| [`src/capyBehavior.ts`](../../src/capyBehavior.ts) | Bộ não: lịch hoạt động có trọng số và hồi chiêu, kịch bản vào/ra nhà, tưới cây, mưa, chạm, mảnh mới, vương miện. Tua clip đi theo quãng đường nên chân không trượt. Thuần, test được hàng nghìn khung hình |
+| [`src/capyWorld.ts`](../../src/capyWorld.ts) | Nối bộ não với three.js: clip ghép lúc tải (`Cheer`, `Bounce`, `Write`, `WaveCan`, `PutDown`, biến thể cầm bình), cửa bản lề và khe cửa tối, đèn cửa sổ, khói, cờ hòm thư, bình tưới tĩnh, lấp lánh và cây nảy khi tưới. Trí nhớ vị trí theo thế giới qua các lần dựng lại cảnh |
+| [`src/Scene.tsx`](../../src/Scene.tsx) | Dựng thế giới (bố cục mục 4.4 của bản thiết kế), gắn Capy biết đi ở scale 0,85, chuyển chạm vào Capy và gõ cửa nhà |
 
-- **Chạm:** SkinnedMesh không nhận raycast vì rất chậm. Thay vào đó, một ellipsoid vô hình (`material.visible = false`, `userData.isCapy`) nhận chạm và con trỏ.
-- **Vương miện:** từ mảnh thứ 20 của Cottage ("Capy's crown") và ở mọi world sau, Capy đội vương miện của GLB thay cho mũ beret và bỏ quả yuzu. Khi đó mảnh vương miện tĩnh bị ẩn. Nếu mảnh này đang rơi xuống, việc đổi chỉ xảy ra khi nó chạm đất.
-- **Giảm chuyển động và ảnh thu nhỏ (Collection):** không chạy mixer, Capy giữ tư thế hero của mood. Chạm vẫn đổi sang tư thế Surprised trong 1,5 s rồi quay lại.
+- **Chạm:** SkinnedMesh không nhận raycast vì rất chậm. Một ellipsoid vô hình (to hơn thân 1,3 lần cho dễ chạm trên điện thoại, `userData.isCapy`) nhận chạm và con trỏ. Khi Capy ở trong nhà kín thì ẩn luôn ellipsoid này, để không chạm xuyên tường. Chạm vào nhà khi Capy ở trong thì Capy ra cửa vẫy.
+- **Vương miện:** từ mảnh 20 của Cottage và ở World 2, Capy đội vương miện của GLB thay mũ beret. Khi mảnh 20 đang rơi, Capy đứng chờ ở (−1,90; 1,70), vương miện rơi đúng lên đầu rồi Capy nảy lên.
+- **Giảm chuyển động và Collection:** Capy giữ một tư thế đặc trưng tĩnh: trước bậc thềm ở Cottage, cầm bình tưới cạnh gốc cây ở Magic Tree. Khi giảm chuyển động, chạm thì vẫy 1,5 s.
 - **World 3 (Lego Capybara):** không đặt Capy, giữ đúng thiết kế cũ.
-- **Lần tải đầu:** Capy "bật" vào với độ vượt nhẹ trong 0,45 s. Khi GLB đã nằm trong cache, Capy hiện ngay ở frame đầu.
-- **Dọn dẹp:** mỗi bản clone chỉ dispose skeleton (bone texture) và hitbox của nó. Geometry, material và texture được dùng chung qua cache.
+- **Lần tải đầu:** nếu đã có cửa, Capy bước từ trong nhà ra chào. Nếu không, Capy "bật" vào ở chỗ nghỉ.
+- **Dọn dẹp:** mỗi bản clone chỉ dispose skeleton, hitbox và hiệu ứng của nó. Geometry, material và texture được dùng chung qua cache. Mỗi cảnh gọi `forceContextLoss()` khi dọn để không chạm giới hạn 16 WebGL context.
+- **Debug:** ở bản dev, phần tử `.scene-render` có thuộc tính `data-capy` mô tả việc Capy đang làm (dùng trong `tests/world.e2e.ts`).
 
 **Lưu ý khi tích hợp**
 
@@ -256,37 +293,55 @@ Không dùng "must" hay câu kiểu confirmshaming.
 - Danh sách bone (đặt tên ổn định để code có thể truy cập trực tiếp):
   - **Thân:** `root`, `body`, `torso`, `head`, `ear.L/R`, `arm.L/R`, `foot.L/R`.
   - **Mặt:** `eye.L/R`, `eye_<open|happy|closed|squint|sad|angry|sleepy|star|wide>.L/R`, `brow.L/R`, `blush.L/R`, `mouth`, `mouth_<smile|open|frown|o|wavy|grr|tongue|smirk>`.
-  - **Đạo cụ:** `beret`, `crown`, `yuzu`, `scarf`, `scarf_tail`, `notebook`, `pencil`, `tear.L/R`, `sweat`, `anger`, `puff.L/R`, `z1–z3`, `bubble`, `question`, `exclaim`, `spark1–5`, `heart1–3`, `cloud`, `drop1–3`, `snow1–2`.
+  - **Đạo cụ:** `beret`, `crown`, `yuzu`, `scarf`, `scarf_tail`, `notebook`, `pencil`, `tear.L/R`, `sweat`, `anger`, `puff.L/R`, `z1–z3`, `bubble`, `question`, `exclaim`, `spark1–5`, `heart1–3`, `cloud`, `drop1–3`, `snow1–2`, `can` (bình tưới, con của `arm.R`).
 
 ## 6. Dựng lại từ nguồn (Blender 5.3, headless)
 
 ```bash
 BL="C:/Program Files/Blender Foundation/Blender 5.3/blender.exe"
-# 1) dựng mesh, rig, material  -> art/capy/capy.blend
+T=$(mktemp -d)
+# 1) dựng mesh, rig, material, bình tưới  -> art/capy/capy.blend
 "$BL" -b --factory-startup --python-exit-code 1 -P art/capy/capy_build.py -- --out art/capy/capy.blend
-# 2) bake 12 action và xuất GLB nén meshopt
-"$BL" -b art/capy/capy.blend --python-exit-code 1 -P art/capy/capy_export.py -- --glb public/models/capy.glb --compress --save
-# 3) render bảng cảm xúc, mặt, turnaround, khung hình animation
+# 2) bake 19 action, xuất GLB chưa nén (KHÔNG dùng --compress)
+"$BL" -b art/capy/capy.blend --python-exit-code 1 -P art/capy/capy_export.py -- --glb "$T/capy.raw.glb" --save
+# 3) gộp dữ liệu trùng giữa các clip, rồi nén meshopt (glTF Transform 4)
+npx -y @gltf-transform/cli@4 dedup "$T/capy.raw.glb" "$T/capy.dedup.glb"
+npx -y @gltf-transform/cli@4 meshopt "$T/capy.dedup.glb" public/models/capy.glb --config art/capy/meshopt.config.mjs
+# 4) render bảng cảm xúc, mặt, turnaround, khung hình animation
 "$BL" -b art/capy/capy.blend --python-exit-code 1 -P art/capy/capy_sheet.py -- --out OUT --view sheet --lens 74 --target-z 0.72
 python art/capy/make_sheet.py OUT OUT/emotions.png   # ảnh trong docs là bản JPG nén lại từ đây
 ```
 
 | File | Vai trò |
 |---|---|
-| `capy_geo.py` | Thư viện hình học: quad sphere, superellipsoid, decal bám bề mặt (có skirt), nét vẽ bo tròn, ký hiệu phồng (puffy), ống |
-| `capy_build.py` | Dựng toàn bộ mesh, màu, material, 76 bone. Mỗi phần chỉ có 1 influence, gắn cứng vào bone |
-| `capy_pose.py` | Lớp điều khiển biểu cảm. Mọi góc được viết theo trục armature rồi đổi sang hệ cục bộ của từng bone |
-| `capy_anim.py` | 12 hàm trạng thái theo thời gian, cùng `bake_actions` (action có slot, NLA track tắt tiếng để xuất glTF) |
-| `capy_export.py` | Bake, xuất GLB rồi đọc lại chunk JSON để kiểm tra clip, skin, kích thước |
+| `capy_geo.py` | Thư viện hình học: quad sphere, superellipsoid, decal bám bề mặt (có skirt), nét vẽ bo tròn, ký hiệu phồng (puffy), ống, khối tròn xoay (lathe) |
+| `capy_build.py` | Dựng toàn bộ mesh, màu, material, 77 bone. Mỗi phần chỉ có 1 influence, gắn cứng vào bone. Bình tưới được dựng hai lần: một bản skin vào bone `can`, một bản tĩnh `WateringCan` (Empty ở đáy bình, mesh con `WateringCanMesh`) |
+| `capy_pose.py` | Lớp điều khiển biểu cảm. Mọi góc được viết theo trục armature rồi đổi sang hệ cục bộ của từng bone. Có thêm kích thước bình tưới (`CAN`) và FK của rig để đặt tay |
+| `capy_anim.py` | 12 hàm trạng thái và 7 hàm hoạt động theo thời gian (`STATES`, `ACTIVITIES`, gộp trong `CLIPS`), cùng `bake_actions` (action có slot, NLA track tắt tiếng để xuất glTF). Dáng đi lăn trên đế chân hình bầu dục để không trượt |
+| `capy_export.py` | Bake, xuất GLB rồi đọc lại chunk JSON để kiểm tra clip, skin, kích thước. Bản chưa nén được làm tròn các track hằng số về lưới 1e-6, để `dedup` gộp được các track giống nhau giữa các clip |
+| `meshopt.config.mjs` | Config cho CLI glTF Transform. Giữ mặc định `--level high`, chỉ nâng filter EXPONENTIAL của track translation/scale từ 12 lên 16 bit. Ở 12 bit, đuôi khăn lệch 3,5 mm và chân `Walk` trượt 0,30 mm/khung. 16 bit tốn thêm 8 KB |
 | `capy_render.py`, `capy_sheet.py`, `make_sheet.py` | Render EEVEE (Khronos PBR Neutral, phông nền ngà) và ghép ảnh |
+
+**Vì sao không nén thẳng trong Blender (`--compress`):**
+
+| Bước | Byte |
+|---|---|
+| Xuất chưa nén | 2.968.640 |
+| Sau `dedup` | 2.860.284 |
+| Sau `meshopt` | 829.224 (gzip 180.422) |
+| So sánh: nén thẳng bằng `--compress` | 1.263.648 |
+
+Lượng tử hóa của `--compress` cũng làm ảnh lệch khỏi bản chưa nén nhiều hơn: trung bình 0,40/255, so với 0,09/255 của `meshopt`. Cờ `--compress` vẫn còn, nhưng không dùng cho bản web.
 
 ## 7. QA và kiểm chứng
 
 **Blender** (`blender-asset-qa`, mesh gốc):
 
-- 21.944 vertex, 40.668 tam giác.
+- 22.604 vertex, 41.972 tam giác, gồm cả bình tưới skin (660 vertex, 1.304 tam giác).
 - 0 cạnh non-manifold, 0 face suy biến, 0 normal ngược.
 - 0 vertex chưa có weight, 0 vertex có hơn 4 influence, scale 1.
+- 21.944 vertex đầu tiên, màu và 76 bone cũ giống hệt bản trước.
+- Bình tĩnh `WateringCanMesh`: 660 vertex, 1.304 tam giác, kín hoàn toàn (0 cạnh biên, 0 non-manifold, 0 vertex trùng). Empty `WateringCan` có transform đơn vị.
 
 **Theo từng trạng thái** (chỉ phần đang hiện):
 
@@ -300,21 +355,41 @@ python art/capy/make_sheet.py OUT OUT/emotions.png   # ảnh trong docs là bả
 |---|---|
 | Decal là mặt hở (2.730 cạnh biên) | Skirt cắm vào bề mặt |
 | Ở rest pose các biến thể chồng lên nhau (z-fighting) | Không bao giờ hiện cùng lúc |
-| 20 n-gon | Nắp phẳng của bút chì và vương miện |
+| 24 n-gon | Nắp phẳng của bút chì, vương miện, vòi và hoa sen của bình tưới |
 | 870 vertex trùng | Đường ranh màu, ví dụ sọc khăn |
 | Chân lún 7 mm dưới z = 0 | Tạo cảm giác tiếp đất mềm |
+| Mọi face không có UV (0 diện tích) | Màu theo vertex, không cần UV |
+
+**Clip hoạt động** (Blender, đo trên mesh skin đã bake, có root motion của app):
+
+| Clip | Trượt chân lớn nhất (mm/khung) | Đỉnh đang chạm đất phẳng |
+|---|---|---|
+| `Walk` | 0,276 | 0,0001 |
+| `WalkCan` | 0,276 | 0,0001 |
+| `TurnStep` | 0,0001 | 0,0001 |
+
+- Giới hạn là 0,3 mm/khung. Phần trượt còn lại nằm ở pha lăn gót → mũi.
+- Mỗi chu kỳ bước đúng 0,400. Chân vung cao 0,060 (`TurnStep` 0,045). Đế chân lúc chống luôn cách mặt đất dưới 0,11 mm.
+- Khung đầu và cuối của mọi clip lặp trùng nhau tuyệt đối. Các "khựng" mà `loop_check` báo (gót đập xuống, giọt nước mới sinh) cũng có ở giữa clip, nên là chủ ý chứ không phải lỗi nối vòng.
+- Cả 19 clip đều có đủ 77 bone × T/R/S = 231 channel.
+- 12 clip cảm xúc: 760 F-curve chung khớp tuyệt đối với bản trước (sai khác 0,0 ở mọi khung). Chỉ thêm bone `can`, luôn ở scale 0.
 
 **three.js r180** (đúng phiên bản trong `package.json`, cùng renderer và đèn với `Scene.tsx`):
 
-- Tải bằng `GLTFLoader` + `MeshoptDecoder` không có lỗi console, nhận đủ 12 clip × 228 track.
-- Ảnh dưới gồm pose hero của mọi clip và một chuỗi crossfade Sad → Happy.
+- Tải bằng `GLTFLoader` + `MeshoptDecoder` không có lỗi console. Nhận đủ 19 clip × 231 track, skin 77 joint, và hai node gốc `RIG_Capy`, `WateringCan`.
+- Đo lại độ trượt trên file đã nén: `Walk` 0,274, `WalkCan` 0,274, `TurnStep` 0,011 mm/khung. Track sau nén lệch tối đa 0,005° (xoay) và 0,2 mm (vị trí).
+- Bản chưa nén so với bản đã nén, 24 khung gồm cả cảm xúc lẫn hoạt động: sai khác trung bình 0,09/255, tối đa 0,1% pixel lệch quá 8/255.
+- 12 clip cảm xúc so với `capy.glb` trước (36 khung):
+  - Model mới xuất theo pipeline cũ (`--compress`) cho ảnh trùng từng pixel.
+  - Pipeline mới lệch trung bình 0,44/255, tối đa 2,5% pixel, chỉ ở đường viền. Nguyên nhân là cách lượng tử hóa khác, và bản mới gần bản chưa nén hơn.
+- Ảnh dưới (từ lần kiểm tra 12 clip cảm xúc) gồm pose hero của mọi clip và một chuỗi crossfade Sad → Happy.
 
 ![Kiểm tra trong three.js r180](capy-threejs-check.jpg)
 
 ## 8. Giới hạn và bước tiếp theo
 
-- **Dung lượng:** 923 KB đã nén. Nếu cần xuống khoảng 400–500 KB, có thể lượng tử hóa thêm bằng `gltfpack -cc -kn` (giữ tên node/bone). Bước này chưa làm và chưa kiểm tra.
-- **Chi phí vẽ:** các biến thể ẩn vẫn đi qua vertex shader (40k tam giác), nhưng không tốn pixel. Với một nhân vật, mức này nhẹ: khoảng 0,16 ms/frame trong lần đo headless.
+- **Dung lượng:** 810 KB đã nén cho 19 clip (gzip 176 KB), nhỏ hơn bản 12 clip trước (923 KB) nhờ `dedup`. Nếu cần xuống khoảng 400–500 KB, có thể lượng tử hóa thêm bằng `gltfpack -cc -kn` (giữ tên node/bone). Bước này chưa làm và chưa kiểm tra.
+- **Chi phí vẽ:** các biến thể ẩn vẫn đi qua vertex shader (42k tam giác), nhưng không tốn pixel. Với một nhân vật, mức này nhẹ: khoảng 0,16 ms/frame trong lần đo headless.
 - **Cần WebAssembly.** Decoder meshopt chạy bằng WASM. Trình duyệt tắt WASM (ví dụ iOS Lockdown Mode) vẫn thấy thế giới nhưng không có Capy, và lỗi được ghi bằng `console.warn`.
 - **Ảnh 2D** trong sidebar, avatar và ảnh dự phòng khi không có WebGL (`public/capy-*.png`) vẫn là nét vẽ cũ.
 - **Màu beret** khác ảnh 2D hiện có (xem mục 3).
