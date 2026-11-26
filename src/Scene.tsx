@@ -31,18 +31,28 @@ function material(color: string) {
   if (!materials.has(color)) materials.set(color, new THREE.MeshStandardMaterial({ color, roughness: .88 }));
   return materials.get(color)!;
 }
+// Geometry is shared the same way: a world repeats sizes (70 roof tiles, petals, studs) and the Collection cards rebuild
+// worlds the home page has already built. Shared geometry lives for the session and is never disposed.
+const geometryCache = new Map<string, THREE.BufferGeometry>();
+const sharedGeometry = new WeakSet<THREE.BufferGeometry>();
+function shared<T extends THREE.BufferGeometry>(key: string, make: () => T): T {
+  let geometry = geometryCache.get(key) as T | undefined;
+  if (!geometry) { geometry = make(); geometryCache.set(key, geometry); sharedGeometry.add(geometry); }
+  return geometry;
+}
 function mesh(parent: THREE.Object3D, geometry: THREE.BufferGeometry, color: string, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(geometry, material(color));
   m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
 }
 function box(parent: THREE.Object3D, w: number, h: number, d: number, color: string, x = 0, y = 0, z = 0, radius = .06) {
-  return mesh(parent, new RoundedBoxGeometry(w, h, d, 3, Math.min(radius, w / 2.2, h / 2.2, d / 2.2)), color, x, y, z);
+  const r = Math.min(radius, w / 2.2, h / 2.2, d / 2.2);
+  return mesh(parent, shared(`box ${w} ${h} ${d} ${r}`, () => new RoundedBoxGeometry(w, h, d, 3, r)), color, x, y, z);
 }
 function ball(parent: THREE.Object3D, radius: number, color: string, x: number, y: number, z: number, scale: [number, number, number] = [1, 1, 1]) {
-  const m = mesh(parent, new THREE.SphereGeometry(radius, 20, 16), color, x, y, z); m.scale.set(...scale); return m;
+  const m = mesh(parent, shared(`ball ${radius}`, () => new THREE.SphereGeometry(radius, 20, 16)), color, x, y, z); m.scale.set(...scale); return m;
 }
 function cylinder(parent: THREE.Object3D, radius: number, height: number, color: string, x: number, y: number, z: number) {
-  return mesh(parent, new THREE.CylinderGeometry(radius, radius, height, 24), color, x, y, z);
+  return mesh(parent, shared(`cylinder ${radius} ${height}`, () => new THREE.CylinderGeometry(radius, radius, height, 24)), color, x, y, z);
 }
 function flower(parent: THREE.Object3D, x: number, y: number, z: number, color = C.flower, size = 1) {
   const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(size); parent.add(g);
@@ -71,7 +81,7 @@ function createHeartGeometry() {
 
 function windowRound(parent: THREE.Object3D, x: number, y: number, z: number, radius = .34) {
   const glass = cylinder(parent, radius, .075, C.glass, x, y, z); glass.rotation.x = Math.PI / 2; glass.userData.glass = true;
-  const ring = mesh(parent, new THREE.TorusGeometry(radius, .065, 8, 32), C.trim, x, y, z + .06);
+  const ring = mesh(parent, shared(`torus ${radius}`, () => new THREE.TorusGeometry(radius, .065, 8, 32)), C.trim, x, y, z + .06);
   box(parent, radius * 1.8, .055, .07, C.trim, x, y, z + .09, .01);
   box(parent, .055, radius * 1.8, .07, C.trim, x, y, z + .09, .01); return ring;
 }
@@ -145,7 +155,7 @@ function buildCottage(root: THREE.Group, count: number) {
   const flag = mailFlag(parts[18], 2.01, .92, 2.06);
   // The crown drops onto Capy's head where Capy waits for it, clear of the eave (doc section 4.4).
   cylinder(parts[19], .2, .1, C.gold, -1.9, 1.11, 1.7);
-  for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5; mesh(parts[19], new THREE.ConeGeometry(.06, .18, 5), C.gold, -1.9 + Math.cos(a) * .17, 1.23, 1.7 + Math.sin(a) * .17); }
+  for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5; mesh(parts[19], shared('cone .06 .18 5', () => new THREE.ConeGeometry(.06, .18, 5)), C.gold, -1.9 + Math.cos(a) * .17, 1.23, 1.7 + Math.sin(a) * .17); }
   box(parts[20], .7, .4, .1, '#e5c79b', -2.35, .84, 2.1); box(parts[20], .08, .65, .08, C.wood, -2.35, .39, 2.1);
   for (let i = 0; i < 3; i++) box(parts[20], .34 - i * .05, .025, .02, '#9a7852', -2.35, .95 - i * .1, 2.16, .003);
   parts.forEach((g, i) => { g.visible = i < count; });
@@ -292,12 +302,35 @@ function buildLego(root: THREE.Group, count: number) {
   legoBrick(parts[20], 2, 2, 0.18, C.gold, 0, 2.46, 0.92, true);
   for (let i = 0; i < 5; i++) {
     const a = i * Math.PI * 2 / 5;
-    mesh(parts[20], new THREE.ConeGeometry(0.08, 0.22, 4), C.gold, Math.sin(a) * 0.22, 2.66, 0.92 + Math.cos(a) * 0.22);
+    mesh(parts[20], shared('cone .08 .22 4', () => new THREE.ConeGeometry(0.08, 0.22, 4)), C.gold, Math.sin(a) * 0.22, 2.66, 0.92 + Math.cos(a) * 0.22);
   }
 
   stage.traverse(obj => { obj.userData.isCapy = true; });
   parts.forEach((g, i) => { g.visible = i < count; });
   return parts;
+}
+
+/**
+ * Scenes build one at a time, each in its own task after the page has painted. Switching to Collection (three cards)
+ * or back home then shows the page at once, and no single task builds several worlds and their WebGL contexts.
+ */
+const buildQueue: (() => void)[] = [];
+let buildPending = false;
+function queueBuild(run: () => void) {
+  buildQueue.push(run);
+  if (!buildPending) { buildPending = true; requestAnimationFrame(nextBuild); }
+  return () => { const i = buildQueue.indexOf(run); if (i >= 0) buildQueue.splice(i, 1); };
+}
+function nextBuild() {
+  setTimeout(() => { // after this frame has painted
+    buildQueue.shift()?.();
+    if (buildQueue.length) requestAnimationFrame(nextBuild); else buildPending = false;
+  });
+}
+/** Programs still compiling on the driver's threads (KHR_parallel_shader_compile); three.js lacks a type for isReady. */
+function compiling(renderer: THREE.WebGLRenderer) {
+  if (!renderer.extensions.has('KHR_parallel_shader_compile')) return false; // compiled in place on first draw
+  return (renderer.info.programs ?? []).some(program => !(program as unknown as { isReady(): boolean | null }).isReady());
 }
 
 type FloatingHeart = {
@@ -319,9 +352,11 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
   // The callback reaches the running scene through a ref, so a re-rendered parent never rebuilds it.
   const callbacks = useRef({ onCapyPet });
   useEffect(() => { callbacks.current = { onCapyPet }; });
+  const [turn, setTurn] = useState(false);
+  useEffect(() => queueBuild(() => setTurn(true)), []);
 
   useEffect(() => {
-    const element = host.current; if (!element) return;
+    const element = host.current; if (!element || !turn) return;
     let renderer: THREE.WebGLRenderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' }); } catch { setFailed(true); return; }
     setFailed(false);
@@ -473,6 +508,19 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     }
 
     let frame = 0; let disposed = false; let visible = true; let animationStart = 0; let lastTime = 0;
+    // Shaders compile on the driver's threads where it can, and nothing draws until they are ready, so a first frame never
+    // blocks on compiling (hundreds of ms for the three Collection cards on Windows). A slow driver draws anyway after 3 s.
+    let compiled = false, compileRun = 0;
+    function compile() {
+      const run = ++compileRun, until = performance.now() + 3000;
+      compiled = false; renderer.compile(scene, camera);
+      const check = () => {
+        if (disposed || run !== compileRun) return;
+        if (compiling(renderer) && performance.now() < until) { setTimeout(check, 16); return; }
+        compiled = true; render();
+      };
+      check();
+    }
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const animated = animatePiece && pieces > 0 && !reducedMotion ? parts[Math.min(20, pieces - 1)] : null;
     let landed = !animated;
@@ -497,7 +545,7 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     // At most one frame is ever pending: every request goes through `again`, or callbacks would multiply each frame.
     const again = () => { if (!frame) frame = requestAnimationFrame(draw); };
     const draw = (time = performance.now()) => {
-      frame = 0; if (disposed || !visible) { lastTime = 0; return; }
+      frame = 0; if (disposed || !visible || !compiled) { lastTime = 0; return; }
       const delta = lastTime ? Math.min(.1, (time - lastTime) / 1000) : 0; lastTime = time;
       controls.update();
 
@@ -632,7 +680,8 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
         crowned: crowned && crownLanded, sense: sense(performance.now()),
       });
       wearCrown();
-      render();
+      // Capy's skinned materials: a model that arrives after the world compiled pauses drawing until they are ready.
+      if (compileRun) compile(); else render();
     }
     if (world !== 2 && !rewardPiece) {
       const cached = loadedCapyModel();
@@ -643,6 +692,7 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     }
 
     resize();
+    compile();
 
     return () => {
       disposed = true; applyAppearance.current = () => {}; cancelAnimationFrame(frame);
@@ -665,7 +715,7 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
       const geometries = new Set<THREE.BufferGeometry>();
       scene.traverse(o => {
         if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
-          geometries.add(o.geometry);
+          if (!sharedGeometry.has(o.geometry)) geometries.add(o.geometry);
           if (o instanceof THREE.LineSegments) (o.material as THREE.Material).dispose();
         }
       });
@@ -675,7 +725,7 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
       renderer.forceContextLoss();
       renderer.domElement.remove();
     };
-  }, [world, pieces, rainy, animatePiece, miniature, rewardPiece]);
+  }, [world, pieces, rainy, animatePiece, miniature, rewardPiece, turn]);
 
   useEffect(() => { applyAppearance.current(resolvedTheme === 'dark'); }, [resolvedTheme]);
 
