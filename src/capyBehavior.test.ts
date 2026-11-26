@@ -259,6 +259,28 @@ describe('Capy brain activities', { timeout: 60_000 }, () => { // whole-map and 
     expect(c[c.length - 1].door).toBe(0);
   });
 
+  it('swings the door gently, never through Capy, and hides Capy only behind the shut door', () => {
+    // the leaf (Scene.tsx door): 0.83 long, hinged at (.42, 1.23) and lying along -x when shut, open = 92 degrees into the room
+    const leafGap = (f: Frame) => {
+      const phi = f.door * 92 * Math.PI / 180, dx = -Math.cos(phi), dz = -Math.sin(phi);
+      const t = Math.max(0, Math.min(.83, (f.x - .42) * dx + (f.z - 1.23) * dz));
+      return Math.hypot(f.x - (.42 + dx * t), f.z - (1.23 + dz * t));
+    };
+    for (const [k, seed, rainy] of [[8, 1, false], [12, 2, false], [14, 3, true], [9, 5, false]] as [number, number, boolean][]) {
+      const frames = run(brainFor(0, k, seed), 600, { rainy });
+      let opening = -1, swings = 0;
+      for (let i = 1; i < frames.length; i++) {
+        const f = frames[i], prev = frames[i - 1], tag = `k${k} seed ${seed} at ${f.t.toFixed(1)}`;
+        if (f.door > 0) expect(leafGap(f), tag).toBeGreaterThan(.33);
+        expect(Math.abs(f.door - prev.door), tag).toBeLessThan(.04); // about 1.1 per second at most
+        if (!f.visible) expect(f.door, tag).toBe(0);
+        if (prev.door === 0 && f.door > 0) opening = prev.t;
+        if (prev.door < 1 && f.door === 1 && opening >= 0) { expect(f.t - opening, tag).toBeGreaterThan(1.4); swings++; opening = -1; }
+      }
+      expect(swings, `k${k} seed ${seed}`).toBeGreaterThan(0);
+    }
+  });
+
   it('opens the day with a good-morning walk out of the cottage', () => {
     const frames = run(brainFor(0, 14, 92), 12);
     expect(frames[0].activity).toBe('goodMorning');

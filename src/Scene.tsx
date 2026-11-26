@@ -85,25 +85,69 @@ function windowRound(parent: THREE.Object3D, x: number, y: number, z: number, ra
   box(parent, radius * 1.8, .055, .07, C.trim, x, y, z + .09, .01);
   box(parent, .055, radius * 1.8, .07, C.trim, x, y, z + .09, .01); return ring;
 }
-function archShape() {
-  const s = new THREE.Shape(); s.moveTo(-.4, 0); s.lineTo(.4, 0); s.lineTo(.4, 1); s.absarc(0, 1, .4, 0, Math.PI, false); s.lineTo(-.4, 0);
+// The front doorway: an arch 0.84 wide, from the floor (y .36) to its spring line 1.0 higher, then a half circle.
+const DOORWAY = { half: .42, floor: .36, spring: 1 };
+/** An arch of half-width r: up from y 0 to the spring line, a half circle over the top (r above it), and back down. */
+function archShape(r: number) {
+  const s = new THREE.Shape(); s.moveTo(-r, 0); s.lineTo(r, 0); s.lineTo(r, DOORWAY.spring); s.absarc(0, DOORWAY.spring, r, 0, Math.PI, false); s.lineTo(-r, 0);
   return s;
 }
 /**
- * The cottage door. The leaf hangs in a hinge group at its back-left edge (x -.425, z 1.405) and opens inward
- * (rotation.y 0 to +92 degrees). Behind it, a dark arch at z 1.505 shows only while the door is open: it reads as the
- * dark room inside, and depth-tests away whatever part of Capy has stepped past it (doc section 5.4).
+ * The front wall (2.6 x 1.94 x .18 at z 1.23-1.41) with the doorway cut through it, so the room inside shows when the
+ * door opens and the wall itself hides whatever has gone in. Rounded edges like the other walls' boxes.
  */
-function door(parent: THREE.Object3D, x: number, y: number, z: number) {
-  const hinge = new THREE.Group(); hinge.position.set(x - .425, y, z - .025); parent.add(hinge);
-  const leaf = new THREE.Group(); leaf.position.set(.425, 0, .025); hinge.add(leaf);
-  mesh(leaf, new THREE.ExtrudeGeometry(archShape(), { depth: .12, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: .025, bevelThickness: .025 }), C.wood);
-  for (let i = -1; i <= 1; i++) box(leaf, .016, 1.13, .02, '#bc8d59', i * .21, .63, .15, .003);
-  ball(leaf, .055, C.gold, .24, .62, .19);
-  windowRound(leaf, 0, 1.02, .13, .19);
-  const portal = new THREE.Mesh(new THREE.ShapeGeometry(archShape(), 12), new THREE.MeshBasicMaterial({ color: '#3b2b22' }));
-  portal.position.set(x, y, 1.505); portal.visible = false; parent.add(portal);
-  return { hinge, portal };
+function frontWall(parent: THREE.Object3D, color: string) {
+  const b = .03, r = DOORWAY.half + b, bottom = .34 + b, top = 2.28 - b, spring = DOORWAY.floor + DOORWAY.spring;
+  const s = new THREE.Shape();
+  s.moveTo(-1.3 + b, bottom); s.lineTo(-r, bottom); s.lineTo(-r, spring); s.absarc(0, spring, r, Math.PI, 0, true);
+  s.lineTo(r, bottom); s.lineTo(1.3 - b, bottom); s.lineTo(1.3 - b, top); s.lineTo(-1.3 + b, top); s.lineTo(-1.3 + b, bottom);
+  return mesh(parent, new THREE.ExtrudeGeometry(s, { depth: .18 - 2 * b, bevelEnabled: true, bevelSegments: 3, bevelSize: b, bevelThickness: b, curveSegments: 20 }), color, 0, 0, 1.23 + b);
+}
+/** The trim around the doorway on the wall's face: an arch band from the opening out to 0.08 wider. */
+function doorCasing(parent: THREE.Object3D) {
+  const a = DOORWAY.half, o = a + .08, spring = DOORWAY.spring, s = new THREE.Shape();
+  s.moveTo(-o, 0); s.lineTo(-o, spring); s.absarc(0, spring, o, Math.PI, 0, true); s.lineTo(o, 0); s.lineTo(a, 0);
+  s.lineTo(a, spring); s.absarc(0, spring, a, 0, Math.PI, false); s.lineTo(-a, 0); s.lineTo(-o, 0);
+  return mesh(parent, new THREE.ExtrudeGeometry(s, { depth: .04, bevelEnabled: true, bevelSegments: 2, bevelSize: .008, bevelThickness: .008, curveSegments: 20 }), C.trim, 0, DOORWAY.floor, 1.418);
+}
+/**
+ * The cottage door: a leaf 0.06 thick set in the doorway against the wall's inner face (z 1.23-1.29), so from outside it
+ * sits back in a reveal. It hangs from a hinge at the opening's inner right edge (x .42, z 1.23) and swings into the room
+ * (rotation.y 0 to -92 degrees), folding back against the right where the usual camera doesn't see, so the open doorway
+ * shows the room and the bookshelf (doc sections 5.4, 13).
+ */
+function door(parent: THREE.Object3D) {
+  const hinge = new THREE.Group(); hinge.position.set(DOORWAY.half, DOORWAY.floor + .015, 1.23); parent.add(hinge);
+  const leaf = new THREE.Group(); leaf.position.set(-DOORWAY.half, 0, 0); hinge.add(leaf);
+  mesh(leaf, new THREE.ExtrudeGeometry(archShape(DOORWAY.half - .015), { depth: .044, bevelEnabled: true, bevelSegments: 2, bevelSize: .008, bevelThickness: .008, curveSegments: 20 }), C.wood, 0, 0, .008);
+  for (let i = -1; i <= 1; i++) box(leaf, .016, 1.1, .016, '#bc8d59', i * .2, .6, .07, .003);
+  ball(leaf, .042, C.gold, -.27, .6, .085); ball(leaf, .042, C.gold, -.27, .6, -.025);
+  windowRound(leaf, 0, 1.0, .03, .17);
+  return { hinge };
+}
+const lampShade = new THREE.MeshStandardMaterial({ color: '#ffe3b3', emissive: '#ffb45c', emissiveIntensity: .75, roughness: .7 });
+/**
+ * The room behind the door. Through the open doorway the usual camera sees the left wall just inside (z 0 to .6) and
+ * the floor before it: the bookshelf and the rug are there, where Capy stops on its way in and out (capyBehavior DEEP).
+ * A bed along the back and a lamp in the back-left corner. The shelf keeps 0.01 clear of Capy's body at that spot, and
+ * the rug clear of the open door leaf (x .39 to .45).
+ */
+function room(parent: THREE.Object3D) {
+  const rug = cylinder(parent, .38, .012, '#d9938c', -.4, .366, .55); rug.scale.set(1, 1, .66);
+  const inner = cylinder(parent, .26, .014, '#f1c6a6', -.4, .367, .55); inner.scale.set(1, 1, .66);
+  box(parent, .12, .95, .7, C.wood, -1.15, .835, .3, .03);
+  const books = ['#c97b6e', '#7fa3b8', '#e3b45f', '#9cb86d'];
+  for (let row = 0; row < 3; row++) {
+    box(parent, .02, .02, .64, C.dark, -1.085, .44 + row * .28, .3, .005); // the shelf's edge
+    for (let i = 0; i < 5; i++) { const h = .2 - (i % 2) * .03; box(parent, .05, h, .1, books[(i + row) % 4], -1.095, .45 + row * .28 + h / 2, .05 + i * .12, .01); }
+  }
+  box(parent, .8, .2, .34, '#e8c69c', .7, .46, -1.04, .05);
+  box(parent, .78, .07, .3, '#e9a7b4', .74, .59, -1.04, .03);
+  box(parent, .22, .08, .26, '#fff4e2', .41, .6, -1.04, .03);
+  cylinder(parent, .11, .34, C.wood, -.97, .53, -.97);
+  cylinder(parent, .02, .18, C.dark, -.97, .79, -.97);
+  const shade = new THREE.Mesh(new THREE.CylinderGeometry(.06, .11, .14, 20), lampShade);
+  shade.position.set(-.97, .93, -.97); shade.castShadow = true; parent.add(shade);
 }
 /** The mailbox flag: an arm lying forward along +z that swings up (rotation.x to -90 degrees) once Capy has checked the mail. */
 function mailFlag(parent: THREE.Object3D, x: number, y: number, z: number) {
@@ -130,13 +174,13 @@ function buildCottage(root: THREE.Group, count: number) {
   const parts = Array.from({ length: 21 }, () => { const g = new THREE.Group(); root.add(g); return g; });
   box(parts[0], 2.8, .2, 2.92, '#edd5ad', 0, .26, 0, .1);
   box(parts[1], 1.15, .15, .55, '#ead5b0', 0, .2, 1.72); box(parts[1], 1.4, .12, .52, '#f1dfbf', 0, .12, 2.05);
-  box(parts[2], 2.6, 1.94, .18, C.cream, 0, 1.31, 1.32);
+  frontWall(parts[2], C.cream); doorCasing(parts[2]);
   box(parts[3], .18, 1.94, 2.65, '#f5dfb6', -1.3, 1.31, 0);
   box(parts[4], .18, 1.94, 2.65, '#f8e2b8', 1.3, 1.31, 0);
   box(parts[5], 2.6, 1.94, .18, C.cream, 0, 1.31, -1.32);
   [-1.27, 1.27].forEach(x => box(parts[2], .13, 2.05, .13, C.trim, x, 1.32, 1.43));
-  box(parts[2], 2.6, .12, .12, C.trim, 0, .47, 1.44);
-  const entrance = door(parts[6], 0, .36, 1.43);
+  [-.905, .905].forEach(x => box(parts[2], .79, .12, .12, C.trim, x, .47, 1.44)); // the base trim, either side of the doorway
+  const entrance = door(parts[6]); room(parts[6]);
   windowRound(parts[7], 0, 2.55, 1.49, .27);
   const win = new THREE.Group(); parts[8].add(win); win.position.set(1.43, 1.43, 0); win.rotation.y = Math.PI / 2; windowRound(win, 0, 0, 0, .34);
   box(win, .94, .1, .2, C.trim, 0, -.45, .06); box(win, .83, .2, .22, '#b2bd85', 0, -.56, .06);
@@ -484,7 +528,12 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
       raycaster.setFromCamera(mouse, camera);
       return raycaster.intersectObjects(root.children, true).filter(h => { for (let o: THREE.Object3D | null = h.object; o; o = o.parent) if (!o.visible) return false; return true; });
     }
-    const isHittingCapy = (e: PointerEvent) => hitsAt(e).some(h => h.object.userData?.isCapy);
+    /** Capy under the pointer, unless the house is in front: Capy seen through the open doorway counts, behind a wall not. */
+    const capyAmong = (hits: THREE.Intersection[]) => {
+      const capyHit = hits.find(h => h.object.userData?.isCapy), wall = hits.find(h => h.object.userData?.isHouse);
+      return !!capyHit && (!wall || capyHit.distance <= wall.distance);
+    };
+    const isHittingCapy = (e: PointerEvent) => capyAmong(hitsAt(e));
 
     const onPointerDown = (e: PointerEvent) => {
       pointerDownPos = { x: e.clientX, y: e.clientY };
@@ -493,7 +542,7 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     const onPointerUp = (e: PointerEvent) => {
       if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 6) return;
       const hits = hitsAt(e);
-      if (hits.some(h => h.object.userData?.isCapy)) {
+      if (capyAmong(hits)) {
         triggerCapyReaction();
       } else if (capy && hits.some(h => h.object.userData?.isHouse) && capy.knock()) render();
     };
@@ -699,7 +748,7 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
       disposed = true; applyAppearance.current = () => {}; cancelAnimationFrame(frame);
       // Detach Capy before disposing scene geometry: its geometry and materials are shared with other scenes through the model cache.
       capy?.dispose(); capy = null;
-      windowGlass.forEach(m => m.dispose()); (cottage?.entrance.portal.material as THREE.Material | undefined)?.dispose();
+      windowGlass.forEach(m => m.dispose());
       observer.disconnect(); intersection.disconnect(); controls.dispose(); floorMaterial.dispose();
       heartGeo.dispose(); heartMat.dispose();
       if (!miniature) {

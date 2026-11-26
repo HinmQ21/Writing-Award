@@ -87,11 +87,14 @@ test('the logo and the world Capy react on their own, each with its own poke cou
   await page.waitForTimeout(1500);
   expect(rest.equals(await liveMark(page).locator('canvas').screenshot())).toBe(true);
   // Logo clicks count apart from that tap: the third is still friendly (a shared count would be at four), the fourth is grumpy.
-  for (let i = 0; i < 3; i++) await logoLink(page).click(); // still a link home
-  await changes(page, rest);
+  // Plain mouse clicks on the link, back to back: all four must land inside the 3 s poke window, even on a slow renderer.
+  const box = (await logoLink(page).boundingBox())!, at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  for (let i = 0; i < 3; i++) await page.mouse.click(at.x, at.y); // still a link home
+  await page.waitForTimeout(300);
   expect(await toast.textContent()).not.toContain(GRUMPY);
-  await logoLink(page).click();
+  await page.mouse.click(at.x, at.y);
   await expect(toast).toContainText(GRUMPY);
+  await changes(page, rest);
   await expect(page).toHaveURL(/#home$/);
   // Four quick taps on the world Capy make it grumpy too, on its own count.
   await expect(toast).toHaveText('', { timeout: 8_000 });

@@ -1,6 +1,6 @@
 /**
  * The world Capy: wires the pure brain (capyBehavior.ts) to a three.js Capy and to the scene's fixtures (the cottage
- * door and its dark gap, window glass, chimney, mailbox flag, the static watering can, plants that bounce when watered).
+ * door, window glass, chimney, mailbox flag, the static watering can, plants that bounce when watered).
  * Design: docs/capy/logo-and-world-behavior.md, sections 5–7.
  *
  * The brain decides everything; this file only copies its Pose into the scene every frame. Emotions live in the logo
@@ -19,8 +19,8 @@ const memories = new Map<WorldIndex, CapyMemory>();
 export function capyMemory(world: WorldIndex): CapyMemory | null { return memories.get(world) ?? null; }
 
 export type WorldFixtures = {
-  /** World 1, 7+ pieces: the door leaf's hinge group (rotation.y opens it inward) and the dark arch behind it. */
-  door?: { hinge: THREE.Object3D; portal: THREE.Object3D };
+  /** World 1, 7+ pieces: the door leaf's hinge group, on the right of the doorway (a negative rotation.y opens it inward). */
+  door?: { hinge: THREE.Object3D };
   /** Cloned glass materials that glow while Capy is home. */
   windows: THREE.MeshStandardMaterial[];
   /** Top of the chimney, in the Capy's parent space (World 1, 13+ pieces). */
@@ -211,10 +211,7 @@ export function createWorldCapy(gltf: GLTF, o: WorldCapyOptions): WorldCapy {
   const bounces = new Map<THREE.Object3D, { base: THREE.Vector3; t: number; amp: number }>();
 
   function effects(pose: Pose, dt: number) {
-    if (fixtures.door) {
-      fixtures.door.hinge.rotation.y = pose.door * DOOR_OPEN;
-      fixtures.door.portal.visible = pose.door * 92 > 4;
-    }
+    if (fixtures.door) fixtures.door.hinge.rotation.y = -pose.door * DOOR_OPEN;
     glow += ((pose.windowsLit ? 1 : 0) - glow) * Math.min(1, dt * 2.5);
     // Daylight is bright, so the panes also warm up in colour, not only in glow, to read as lamplight.
     fixtures.windows.forEach((material, i) => { material.color.copy(glassColors[i]).lerp(LIT_GLASS, glow); material.emissive.copy(GLOW); material.emissiveIntensity = glow * 1.6; });

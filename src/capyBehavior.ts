@@ -58,10 +58,29 @@ const LOOKAHEAD = .3;
 const TURN_FADE = .15, CLIP_FADE = .25, STAND_FADE = .3;
 /** Standing in Calm never lasts longer than this outside rests (the scheduler shortens idles). */
 const STILL_LIMIT = 7.5;
-/** Inside the house Capy is hidden behind the door's dark gap once its centre is past this z (enclosed house). */
-const HIDE_Z = 1.05;
-/** Just inside the door, in both the interior box and the door lane: walks between the door and the room pass here. */
-const INNER: Point = { x: 0, z: .82 };
+/** The cottage's inner wall face at the door. Past it, in an enclosed house with the door shut, Capy is out of sight. */
+const WALL_IN = 1.23;
+/**
+ * The door's hinge (Scene.tsx door: a 0.83 leaf at the opening's inner right edge, swinging into the room) and how far
+ * Capy's centre must be from it, walking away, before the leaf starts to swing shut behind it. Less than the leaf plus
+ * Capy's body: the leaf eases off slowly and Capy keeps going, so the gap stays over 0.4 (unit test: over 0.33; 0.8 here
+ * would clip Capy).
+ */
+const HINGE: Point = { x: .42, z: 1.23 }, SWEEP_CLEAR = 1;
+/**
+ * Just inside, on the door's line: walks between the doorway and the room turn here. Coming out Capy stops at this corner
+ * on a passing frame, up to a quarter stride off the line, so the walk on aims at LINE_UP first, a gentle bend that puts
+ * Capy back on the line before the doorway.
+ */
+const INNER: Point = { x: 0, z: .7 }, LINE_UP: Point = { x: 0, z: 1.05 };
+/**
+ * Where Capy stands inside to go in or out: by the bookshelf left of the door, out of the leaf's sweep (1.29 from the
+ * hinge), and in the part of the room the default camera sees through the doorway (about 60% of Capy), so Capy is still
+ * seen as the door swings shut on it.
+ */
+export const DEEP: Point = { x: -.7, z: .6 };
+/** Coming out, the door swings shut behind Capy once it is this far out, past the wall's front face. */
+const CLOSE_OUT_Z = 1.7;
 
 const mod = (a: number, m: number) => ((a % m) + m) % m;
 /** The passing time nearest to clip time t (cyclically). */
@@ -382,32 +401,35 @@ function cumulative(pts: Point[]) {
 }
 
 // ================================================================================================ the door
+/** A full swing takes this long, easing in and out at both ends: the door opens and closes gently, never snaps. */
+export const DOOR_OPEN_SECONDS = 1.6, DOOR_CLOSE_SECONDS = 1.4;
+/** Capy sets off through the doorway once the door is this far open; it finishes opening as Capy gets there. */
+const DOOR_AJAR = .62;
 class Door {
   value = 0;
-  private mode: 'still' | 'open' | 'close' | 'bounce' = 'still'; private t = 0; private from = 0;
-  open() { if (this.mode !== 'open' && this.value < 1) { this.mode = 'open'; this.t = 0; this.from = this.value; } }
-  close() { if (this.value > 0 || this.mode === 'open') { this.mode = 'close'; this.t = 0; this.from = this.value; } }
-  get opened() { return this.value >= 1 && this.mode === 'still'; }
+  private mode: 'still' | 'open' | 'close' = 'still'; private t = 0; private from = 0; private span = 0;
+  open() {
+    if (this.mode === 'open' || (this.mode === 'still' && this.value >= 1)) return;
+    this.mode = 'open'; this.t = 0; this.from = this.value; this.span = DOOR_OPEN_SECONDS * Math.max(.25, 1 - this.value);
+  }
+  close() {
+    if (this.mode === 'close' || (this.mode === 'still' && this.value <= 0)) return;
+    this.mode = 'close'; this.t = 0; this.from = this.value; this.span = DOOR_CLOSE_SECONDS * Math.max(.25, this.value);
+  }
+  get ajar() { return this.mode !== 'close' && this.value >= DOOR_AJAR; }
   update(dt: number) {
+    if (this.mode === 'still') return;
     this.t += dt;
-    if (this.mode === 'open') {
-      const u = Math.min(1, this.t / .45); this.value = this.from + (1 - this.from) * (1 - (1 - u) ** 3);
-      if (u >= 1) { this.value = 1; this.mode = 'still'; }
-    } else if (this.mode === 'close') {
-      const u = Math.min(1, this.t / .35); this.value = this.from * (1 - u * u);
-      if (u >= 1) { this.value = 0; this.mode = 'bounce'; this.t = 0; }
-    } else if (this.mode === 'bounce') {
-      // it meets the frame and bounces open a hair
-      this.value = this.t < .16 ? .045 * Math.sin(Math.PI * this.t / .16) : 0;
-      if (this.t >= .16) this.mode = 'still';
-    }
+    const u = Math.min(1, this.t / this.span), e = (1 - Math.cos(Math.PI * u)) / 2;
+    this.value = this.mode === 'open' ? this.from + (1 - this.from) * e : this.from * (1 - e);
+    if (u >= 1) { this.value = this.mode === 'open' ? 1 : 0; this.mode = 'still'; }
   }
 }
 
 // ================================================================================================ steps and tasks
 type Face = number | Point | 'camera';
 type Step = { stay?: boolean } & (
-  | { k: 'walk'; to: Point; face?: Face; region?: Region; exact?: boolean; via?: Point }
+  | { k: 'walk'; to: Point; face?: Face; region?: Region; exact?: boolean; via?: Point; through?: boolean }
   | { k: 'face'; to: Face }
   | { k: 'clip'; clip: WorldClip; seconds?: number; water?: Point & { y: number }; mail?: boolean }
   | { k: 'wait'; seconds: number; rest?: boolean }
@@ -442,6 +464,8 @@ class CapyBrain {
   private readyAt = new Map<string, number>();
   private activities: Activity[];
   private pendingTap = false; private pendingLanded = false;
+  /** Set while Capy walks through the doorway: the door swings shut behind it once it is clear ('in' or 'out'). */
+  private closeBehind: 'in' | 'out' | null = null;
   private exitEarly = false; private waveOnExit = false;
   private inside = false; private visible = true; private lit = false; private smoke = false;
   private watering: (Point & { y: number }) | null = null;
@@ -465,6 +489,7 @@ class CapyBrain {
     } else if (mem) this.restore(mem);
     else if (nav.door) this.startInside('goodMorning', 1.2, true);
     else this.body.place(nav.spawn, nav.spawnHeading);
+    this.updateVisible();
   }
 
   // ---------------------------------------------------------------------------------------------- start states
@@ -474,7 +499,7 @@ class CapyBrain {
     if (mem.inside && nav.door) { this.startInside('home', 2 + this.rng() * 4, false); return; }
     if (nav.door && inDoorLane(nav, p, .05) && !nav.walkable(p)) {
       // caught on the steps by the rebuild: back on the step where the lane meets the yard, door shut
-      this.body.place(p.z < nav.door.sill.z ? nav.door.inside : nav.door.wait, mem.heading);
+      this.body.place(p.z < nav.door.sill.z ? DEEP : nav.door.wait, mem.heading);
       if (p.z < nav.door.sill.z) { this.startInside('home', 1 + this.rng() * 2, false); return; }
     } else if (isReachable(nav, p)) this.body.place(p, mem.heading);
     else this.body.place(nav.nearestWalkable(p) ?? nav.spawn, mem.heading);
@@ -483,9 +508,8 @@ class CapyBrain {
 
   /** Capy starts inside the cottage, door shut, and comes out after `stay` seconds. */
   private startInside(id: string, stay: number, wave: boolean) {
-    const door = this.nav.door!;
-    this.body.place(door.inside, 0);
-    this.inside = true; this.visible = !this.nav.interior!.enclosed;
+    this.body.place(DEEP, facing(DEEP, INNER));
+    this.inside = true;
     const steps: Step[] = [{ k: 'wait', seconds: stay, rest: true, stay: true }];
     if (this.body.holding && this.world === 0) steps.push({ k: 'mark', f: () => { this.body.holding = false; } });
     steps.push(...this.exitSteps());
@@ -522,12 +546,20 @@ class CapyBrain {
     this.handleInterrupts();
     this.runSteps(dt);
     this.body.update(dt);
-    // visibility through the door's dark gap: hidden once past it in an enclosed house
-    if (this.nav.door && this.nav.interior?.enclosed && inDoorLane(this.nav, this.body.pos, .05)) this.visible = this.body.z >= HIDE_Z;
+    const clear = this.closeBehind === 'in' ? this.body.z < WALL_IN && dist(this.body.pos, HINGE) >= SWEEP_CLEAR : this.closeBehind === 'out' && this.body.z >= CLOSE_OUT_Z;
+    if (clear) { this.door.close(); this.closeBehind = null; }
+    this.updateVisible();
     const d = this.body.display();
     const still = this.body.mode === 'stand' && (d.clip === 'Calm' || (d.clip === 'PickUp' && d.phase === HOLD_CAN_PHASE));
     this.stillT = still ? this.stillT + dt : 0;
     return this.pose();
+  }
+
+  /** Out of sight only behind a shut door: inside an enclosed cottage with the door closed. Seen through the doorway otherwise. */
+  private updateVisible() {
+    const nav = this.nav, p = this.body.pos;
+    const indoors = !!nav.door && !!nav.interior?.enclosed && p.z < WALL_IN && (inInterior(nav, p, .05) || inDoorLane(nav, p, .05));
+    this.visible = !(indoors && this.door.value === 0);
   }
 
   // ---------------------------------------------------------------------------------------------- pose
@@ -559,7 +591,7 @@ class CapyBrain {
     if (t.interrupt) return false;
     const s = t.steps[t.i];
     if (!s) return true;
-    if (s.k === 'walk') return (s.region ?? 'nav') !== 'lane';
+    if (s.k === 'walk') return (s.region ?? 'nav') !== 'lane' && !s.through;
     return s.k === 'face' || s.k === 'clip' || s.k === 'wait' || s.k === 'settle';
   }
 
@@ -663,7 +695,6 @@ class CapyBrain {
         else path = s.via && dist(b.pos, s.via) > .05 ? [s.via, s.to] : [s.to];
         if (!path) return 'fail';
         b.walk(path, region, s.face !== undefined ? this.heading(s.face) : undefined, s.to, !!s.exact && region === 'nav');
-        if (region === 'lane' && this.inside && s.to.z > b.z) this.inside = false; // walking out: Capy shows
         return 'run';
       }
       case 'face': b.turn(this.heading(s.to)); return 'run';
@@ -719,7 +750,7 @@ class CapyBrain {
         return t >= limit ? 'done' : 'run';
       }
       case 'until': return s.f() ? 'done' : 'run';
-      case 'door': return this.door.opened ? 'done' : 'run';
+      case 'door': return this.door.ajar ? 'done' : 'run';
       case 'pickup':
         if (t >= PICKUP_GRAB) b.holding = true;
         if (t >= PICKUP_CARRY) { b.stand('Calm', { fade: .15 }); return 'done'; }
@@ -804,26 +835,36 @@ class CapyBrain {
     return { x: l.x, z: l.z, y: p.target?.y ?? .3 };
   }
 
+  /**
+   * Going in (doc 5.4, 13): up to the step, a beat in front of the door, which swings slowly open; Capy sets off once it
+   * is well open, walks through and over to the bookshelf, turns round, and the door swings shut once Capy is clear of it.
+   */
   private enterSteps(): Step[] {
     const d = this.nav.door!;
     return [
       { k: 'walk', to: d.approach, face: d.heading },
       { k: 'walk', to: d.wait, region: 'lane', face: d.heading },
+      { k: 'wait', seconds: .35, rest: true },
       { k: 'door', open: true, wait: true },
-      { k: 'walk', to: d.inside, region: 'lane' },
-      { k: 'mark', f: () => { this.inside = true; if (this.nav.interior!.enclosed) this.visible = false; } },
+      { k: 'mark', f: () => { this.inside = true; this.closeBehind = 'in'; } },
+      { k: 'walk', to: DEEP, region: 'interior', via: INNER, through: true },
+      { k: 'face', to: INNER },
       { k: 'door', open: false },
     ];
   }
+  /** Coming out: to the bookshelf spot (straight there when out of sight), the door swings open, out and down the steps, and it shuts behind. */
   private exitSteps(): Step[] {
     const d = this.nav.door!;
     return [
-      // back to the door from the writing spot (seen), or simply lined up with it (hidden)
-      { k: 'call', f: () => !this.visible ? [] : dist(this.body.pos, d.inside) > .1 ? [{ k: 'walk', to: d.inside, region: 'interior', via: INNER }] : [] },
-      { k: 'mark', f: () => { if (!this.visible) this.body.place({ x: d.inside.x, z: Math.min(this.body.z, d.inside.z) }, 0); } },
-      { k: 'face', to: 0 },
+      { k: 'call', f: () => {
+        if (!this.visible) { this.body.place(DEEP, facing(DEEP, INNER)); return []; }
+        return dist(this.body.pos, DEEP) > .05 ? [{ k: 'walk', to: DEEP, region: 'interior' }] : [];
+      } },
+      { k: 'face', to: INNER },
       { k: 'door', open: true, wait: true },
-      { k: 'walk', to: d.wait, region: 'lane' },
+      { k: 'mark', f: () => { this.inside = false; this.closeBehind = 'out'; } },
+      { k: 'walk', to: INNER, region: 'interior', through: true },
+      { k: 'walk', to: d.wait, region: 'interior', via: LINE_UP, through: true },
       { k: 'door', open: false, exit: true },
     ];
   }
@@ -832,11 +873,11 @@ class CapyBrain {
     const steps: Step[] = [{ k: 'mark', f: () => { this.lit = !!o.lit || this.night || this.rainy; this.smoke = !!o.smoke; if (o.store) this.body.holding = false; } }];
     if (this.nav.interior!.enclosed) steps.push({ k: 'wait', seconds, rest: true, stay: true });
     else {
-      const spot = { x: this.rand(-.55, .55), z: this.rand(-.45, .45) };
+      // a spot clear of the door's sweep, so the door may still be swinging shut as Capy walks there
+      const spot = { x: this.rand(-.55, .55), z: this.rand(-.5, 0) };
       steps.push(
-        { k: 'walk', to: spot, region: 'interior', via: INNER, face: 'camera', stay: true },
+        { k: 'walk', to: spot, region: 'interior', face: 'camera', stay: true },
         { k: 'clip', clip: 'Write', seconds: Math.max(2, seconds), stay: true },
-        { k: 'walk', to: this.nav.door!.inside, region: 'interior', via: INNER },
       );
     }
     if (o.fetch) steps.push({ k: 'mark', f: () => { this.body.holding = true; } });
