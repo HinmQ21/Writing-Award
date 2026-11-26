@@ -73,26 +73,31 @@ async function findWorldCapy(page: Page) {
   return spot!;
 }
 
-test('a tap on the world Capy shows on the logo, and world taps and logo clicks share one poke count', async ({ page }) => {
+test('the logo and the world Capy react on their own, each with its own poke count', async ({ page }) => {
   const errors = watchErrors(page);
   const toast = page.locator('.toast');
   await page.goto('/');
   await expect(liveMark(page)).toHaveCount(1);
   const rest = await settled(page);
+  // A tap on the world Capy is answered in the world only: a friendly line, and the logo stays at rest.
   let spot = await findWorldCapy(page);
   await page.mouse.click(spot.x, spot.y);
-  await expect(toast).toContainText('Capy'); // a friendly line from the world
+  await expect(toast).toContainText('Capy');
   await expect(toast).not.toContainText(GRUMPY);
-  await changes(page, rest); // and the logo is surprised
-  await page.waitForTimeout(3200); // that poke has expired
-  spot = await findWorldCapy(page);
-  await page.mouse.click(spot.x, spot.y);
-  await page.mouse.click(spot.x, spot.y);
-  await logoLink(page).click(); // still a link home
+  await page.waitForTimeout(1500);
+  expect(rest.equals(await liveMark(page).locator('canvas').screenshot())).toBe(true);
+  // Logo clicks count apart from that tap: the third is still friendly (a shared count would be at four), the fourth is grumpy.
+  for (let i = 0; i < 3; i++) await logoLink(page).click(); // still a link home
+  await changes(page, rest);
   expect(await toast.textContent()).not.toContain(GRUMPY);
   await logoLink(page).click();
   await expect(toast).toContainText(GRUMPY);
   await expect(page).toHaveURL(/#home$/);
+  // Four quick taps on the world Capy make it grumpy too, on its own count.
+  await expect(toast).toHaveText('', { timeout: 8_000 });
+  spot = await findWorldCapy(page);
+  for (let i = 0; i < 4; i++) await page.mouse.click(spot.x, spot.y);
+  await expect(toast).toContainText(GRUMPY);
   expect(errors).toEqual([]);
 });
 

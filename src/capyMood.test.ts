@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { baseMood, CAPY_MOODS, capyBus, CLIP_SECONDS, createMoodQueue, entrySteps, localHour, nextPokeReaction, pokeCounter, reconcileSteps, REJECTED_STEPS } from './capyMood';
+import { baseMood, CAPY_MOODS, capyBus, CLIP_SECONDS, createMoodQueue, entrySteps, localHour, nextLogoPoke, nextWorldPoke, pokeCounter, reconcileSteps, REJECTED_STEPS } from './capyMood';
 import type { CapyMood } from './capyMood';
 import { createProgress, reconcileProgress } from './model';
 
@@ -111,12 +111,11 @@ describe('Capy pokes', () => {
     expect(next(4000)).toBe('Grumpy');
     expect(next(20_000)).toBe('Surprised');
   });
-  it('count world taps and logo clicks together', () => {
+  it('count world taps and logo clicks apart', () => {
     const start = 1e9; // far from any earlier poke in this run
-    expect(nextPokeReaction(start)).toBe('Surprised'); // a tap in the world
-    expect(nextPokeReaction(start + 300)).toBe('Surprised'); // a logo click
-    expect(nextPokeReaction(start + 600)).toBe('Surprised');
-    expect(nextPokeReaction(start + 900)).toBe('Grumpy');
+    for (let i = 0; i < 3; i++) { expect(nextWorldPoke(start + i * 200)).toBe('Surprised'); expect(nextLogoPoke(start + i * 200 + 100)).toBe('Surprised'); }
+    expect(nextLogoPoke(start + 700)).toBe('Grumpy'); // the logo's fourth click
+    expect(nextWorldPoke(start + 800)).toBe('Grumpy'); // the world's fourth tap
   });
 });
 

@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import './scoring/choices.css';
 import './prompts.css';
 import { BookOpenCheck } from 'lucide-react';
-import { baseMood, capyBus, entrySteps, nextPokeReaction, reconcileSteps, REJECTED_STEPS, useCapyMood } from './capyMood';
+import { baseMood, capyBus, entrySteps, nextLogoPoke, reconcileSteps, REJECTED_STEPS, useCapyMood } from './capyMood';
 import type { CapyMood, CapyStep } from './capyMood';
 import { CapyMark, replayCapyLogo } from './CapyLogo';
 import { activeWorld, attachPrompt, createProgress, dayKey, displayDate, DRAFT_KEY, essaySource, minimumWords, nextVersion, parseProgress, PIECES, PROMPT_DRAFTS_KEY, promptTitle, reconcileProgress, STORAGE_KEY, submitEssay, TIMEZONE, wordCount, worldPieces, WORLDS } from './model';
@@ -122,9 +122,9 @@ function App() {
     setProgress(next); setIssue('');
   }
   function notify(message: string) { setToast(message); }
-  // A poke on Capy in the world or on the logo shows on the logo's face. The fourth within three seconds makes Capy grumpy.
-  function pokeCapy(reaction: CapyMood) { capyBus.react(reaction); if (reaction === 'Grumpy') notify(GRUMPY_NOTE); }
-  const pokeLogo = () => pokeCapy(nextPokeReaction());
+  // The logo and the world Capy react on their own: a click on the logo shows on its face only, a tap in the world is
+  // answered by the world Capy only. Each counts its own pokes; the fourth within three seconds makes that Capy grumpy.
+  function pokeLogo() { const reaction = nextLogoPoke(); capyBus.react(reaction); if (reaction === 'Grumpy') notify(GRUMPY_NOTE); }
   function onSubmit(text: string, task: Task, scoreNow: boolean, selection: PromptSelection): Essay {
     // Re-read at commit so two already-open tabs share the same daily reward.
     let latest = progress;
@@ -197,8 +197,7 @@ function App() {
                 <div className={`scene-stage ${progress.rainyUntil && progress.rainyUntil >= dayKey() ? 'rainy' : ''}`}>
                   <div className="scene-status">{progress.rainyUntil && progress.rainyUntil >= dayKey() ? <><CloudRain aria-hidden="true" size={14} /> A bit of rain, then the sun will return</> : <><span className="status-dot" /> Growing right along with you</>}</div>
                   <div className="scene-stars" role="img" aria-label={`Decorative stars: ${progress.stars} out of 3`}>{[0, 1, 2].map(i => <Star aria-hidden="true" key={i} size={13} className={i < progress.stars ? "filled" : ""} style={{ opacity: i < progress.stars ? 1 : .35 }} />)}</div><Suspense fallback={<LoadingScene />}><Scene ref={sceneRef} world={world} pieces={count} animatePiece={animate} rainy={!!progress.rainyUntil && progress.rainyUntil >= dayKey()} onCapyPet={reaction => {
-                    pokeCapy(reaction);
-                    if (reaction === 'Grumpy') return;
+                    if (reaction === 'Grumpy') { notify(GRUMPY_NOTE); return; }
                     const quotes = [
                       'Capy: "A little bit every day, you\'re doing wonderfully!"',
                       'Capy: "Take a tiny moment of quiet just for yourself."',

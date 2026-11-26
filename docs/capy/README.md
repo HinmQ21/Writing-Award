@@ -270,13 +270,14 @@ Cảm xúc ở logo, hành động ở thế giới. Thiết kế và các số 
 |---|---|
 | [`src/capyModel.ts`](../../src/capyModel.ts) | Tải GLB một lần (`GLTFLoader` + `MeshoptDecoder`), clone bằng `SkeletonUtils.clone`, gỡ `WateringCan` khỏi mỗi bản clone. Actor cảm xúc cho logo: `setMood`, `react`, `burst` (một đợt ≤ 5 s rồi dừng êm ở khung hero), `halt`, tuỳ chọn `fx` phóng to ký hiệu nổi |
 | [`src/CapyLogo.tsx`](../../src/CapyLogo.tsx) | Logo 3D: một renderer dùng chung cho logo sidebar và topbar, 30 fps khi diễn, không vẽ khi nghỉ. Dự phòng `favicon.svg` khi không có WebGL, WASM, hoặc bật Save-Data |
-| [`src/capyMood.ts`](../../src/capyMood.ts) | Hàm thuần `baseMood`, `reconcileSteps`, `entrySteps`, hook `useCapyMood` (hàng đợi bắt đầu khi logo vẽ khung đầu), `capyBus` cho phản ứng tức thời, `nextPokeReaction` đếm chung lượt chạm Capy và bấm logo |
+| [`src/capyMood.ts`](../../src/capyMood.ts) | Hàm thuần `baseMood`, `reconcileSteps`, `entrySteps`, hook `useCapyMood` (hàng đợi bắt đầu khi logo vẽ khung đầu), `capyBus` cho phản ứng tức thời của logo, `nextLogoPoke` và `nextWorldPoke` đếm lượt bấm logo và lượt chạm Capy trong thế giới riêng rẽ |
 | [`src/capyNav.ts`](../../src/capyNav.ts), [`src/capyNavData.ts`](../../src/capyNavData.ts) | Bản đồ đi được theo số mảnh (lưới A* 0,1, độ cao mặt đất, vùng nhìn thấy từ camera), POI, lối cửa. Thuần, không import three |
 | [`src/capyBehavior.ts`](../../src/capyBehavior.ts) | Bộ não: lịch hoạt động có trọng số và hồi chiêu, kịch bản vào/ra nhà, tưới cây, mưa, chạm, mảnh mới, vương miện. Tua clip đi theo quãng đường nên chân không trượt. Thuần, test được hàng nghìn khung hình |
 | [`src/capyWorld.ts`](../../src/capyWorld.ts) | Nối bộ não với three.js: clip ghép lúc tải (`Cheer`, `Bounce`, `Write`, `WaveCan`, `PutDown`, biến thể cầm bình), cửa bản lề và khe cửa tối, đèn cửa sổ, khói, cờ hòm thư, bình tưới tĩnh, lấp lánh và cây nảy khi tưới. Trí nhớ vị trí theo thế giới qua các lần dựng lại cảnh |
 | [`src/Scene.tsx`](../../src/Scene.tsx) | Dựng thế giới (bố cục mục 4.4 của bản thiết kế), gắn Capy biết đi ở scale 0,85, chuyển chạm vào Capy và gõ cửa nhà |
 
 - **Chạm:** SkinnedMesh không nhận raycast vì rất chậm. Một ellipsoid vô hình (to hơn thân 1,3 lần cho dễ chạm trên điện thoại, `userData.isCapy`) nhận chạm và con trỏ. Khi Capy ở trong nhà kín thì ẩn luôn ellipsoid này, để không chạm xuyên tường. Chạm vào nhà khi Capy ở trong thì Capy ra cửa vẫy.
+- **Hai Capy độc lập:** chạm Capy trong thế giới thì chỉ Capy đó vẫy, thả tim và nói một câu. Bấm logo thì chỉ logo giật mình. Mỗi bên đếm lượt chạm riêng: lần thứ 4 trong 3 s thì Capy đó phồng má (ở thế giới: không vẫy, không thả tim, chỉ hiện câu phồng má).
 - **Vương miện:** từ mảnh 20 của Cottage và ở World 2, Capy đội vương miện của GLB thay mũ beret. Khi mảnh 20 đang rơi, Capy đứng chờ ở (−1,90; 1,70), vương miện rơi đúng lên đầu rồi Capy nảy lên.
 - **Giảm chuyển động và Collection:** Capy giữ một tư thế đặc trưng tĩnh: trước bậc thềm ở Cottage, cầm bình tưới cạnh gốc cây ở Magic Tree. Khi giảm chuyển động, chạm thì vẫy 1,5 s.
 - **World 3 (Lego Capybara):** không đặt Capy, giữ đúng thiết kế cũ.

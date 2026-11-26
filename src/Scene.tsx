@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RotateCcw } from 'lucide-react';
-import { localHour, nextPokeReaction, type CapyMood } from './capyMood';
+import { localHour, nextWorldPoke, type CapyMood } from './capyMood';
 import { loadCapyModel, loadedCapyModel } from './capyModel';
 import { BUSH17_X, inKeepClear } from './capyNavData';
 import { capyMemory, createWorldCapy, type WorldCapy, type WorldFixtures } from './capyWorld';
@@ -19,7 +19,7 @@ type Props = {
   animatePiece?: boolean;
   miniature?: boolean;
   rewardPiece?: boolean;
-  /** A tap on Capy: Surprised, or Grumpy on the fourth poke within three seconds (world taps and logo clicks count together). */
+  /** A tap on the world Capy: Surprised, or Grumpy on its fourth tap within three seconds (counted apart from the logo). */
   onCapyPet?: (reaction: CapyMood) => void;
 };
 // The decor loops keep this front-left spot clear (Capy's resting place), and in the Capy worlds also the cottage door lane.
@@ -441,11 +441,12 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
     let capy: WorldCapy | null = null;
     const heartsAt = new THREE.Vector3();
 
-    // Capy's face reacts in the logo; the world answers a tap with hearts.
+    // Only the world Capy answers a tap here (the logo never hears it): a wave and hearts, or on a fourth quick tap a
+    // grumpy note and no wave.
     function triggerCapyReaction() {
-      const reaction = nextPokeReaction();
+      const reaction = nextWorldPoke();
+      if (reaction !== 'Grumpy') { if (capy && !capy.tap()) return; floatHearts(); }
       callbacks.current.onCapyPet?.(reaction);
-      if (reaction !== 'Grumpy') floatHearts();
       render();
     }
 
@@ -493,7 +494,7 @@ const Scene = forwardRef<SceneHandle, Props>(function Scene({ world, pieces, rai
       if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 6) return;
       const hits = hitsAt(e);
       if (hits.some(h => h.object.userData?.isCapy)) {
-        if (capy?.tap() !== false) triggerCapyReaction();
+        triggerCapyReaction();
       } else if (capy && hits.some(h => h.object.userData?.isHouse) && capy.knock()) render();
     };
 

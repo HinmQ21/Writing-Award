@@ -632,5 +632,6 @@ Cả 8 đề xuất dưới đây đều được đồng ý và đã làm đún
 |---|---|---|---|
 | Bình tĩnh ở thế giới 2 | Đặt ở (2.24, 0.17) | Đặt cạnh tay phải của Capy khi đứng ở chỗ để bình, khoảng (1.88, 0.57) | (2.24, 0.17) nằm bên tay trái, còn bình được cầm bằng tay phải. Đặt đúng chỗ tay với tới thì `PickUp` khớp, bình không giật |
 | Tối ưu GLB | `gltf-transform meshopt` mặc định | Thêm [`art/capy/meshopt.config.mjs`](../../art/capy/meshopt.config.mjs): bộ lọc exp 16 bit cho translation và scale của animation | Ở 12 bit mặc định, đuôi khăn lệch 3,5 mm và chân chống trượt hơn 0,3 mm mỗi khung. 16 bit chỉ tốn thêm khoảng 8 KB |
+| Chạm Capy | Chạm Capy trong thế giới làm logo giật mình, và lượt chạm thế giới với lượt bấm logo đếm chung (mục 3.5) | Hai Capy độc lập: mỗi bên chỉ tự phản ứng và đếm lượt riêng (`nextLogoPoke`, `nextWorldPoke`) | Chạm một Capy mà cả hai cùng phản ứng gây khó hiểu |
 | Ô chọn ở phần chấm điểm | Không nhắc | `ChoiceSelect` focus lựa chọn ngay trong `useLayoutEffect`, không đợi khung sau | Lỗi e2e có sẵn: phím đầu tiên sau khi mở danh sách có thể không tới danh sách |
 | Debug | Không nhắc | Bản dev có `data-capy` trên `.scene-render` | Cho e2e đọc được Capy đang làm gì mà không cần chụp ảnh |

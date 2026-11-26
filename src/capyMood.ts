@@ -92,5 +92,6 @@ export function pokeCounter(windowMs = 3000, grumpyAt = 4) {
     pokes = []; return 'Grumpy';
   };
 }
-/** One shared count for taps on Capy in the world and clicks on the logo. */
-export const nextPokeReaction = pokeCounter();
+/** The logo and the world Capy are two separate Capys: each counts its own pokes and only it reacts. */
+export const nextLogoPoke = pokeCounter();
+export const nextWorldPoke = pokeCounter();
